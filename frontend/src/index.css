@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   --color-bg: #001801;
@@ -13,9 +13,9 @@
   --color-warning: #e8fccf;
   --color-danger: #ffb4ab;
 
-  --font-sans: Inter, "Segoe UI", Roboto, sans-serif;
-  --font-heading: Inter, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --font-sans: Inter, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: Inter, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
   --shadow-panel:
     0 18px 40px rgba(0, 0, 0, 0.22), 0 10px 22px rgba(0, 0, 0, 0.18);
@@ -47,8 +47,7 @@ body,
 
 body {
   margin: 0;
-  background:
-    radial-gradient(circle at top, rgba(9, 62, 9, 0.28), transparent 40%),
+  background: radial-gradient(circle at top, rgba(9, 62, 9, 0.28), transparent 40%),
     var(--color-bg);
   color: var(--color-text);
 }
@@ -114,3 +113,4 @@ code {
     scroll-behavior: smooth;
   }
 }
+
