@@ -1,0 +1,116 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #001801;
+  --color-surface: #002602;
+  --color-surface-2: #093e09;
+  --color-border: #41493a;
+  --color-text: #b8f2a9;
+  --color-text-muted: #c0cab5;
+  --color-accent: #8adb5f;
+  --color-accent-strong: #56a22e;
+  --color-success: #76db8f;
+  --color-warning: #e8fccf;
+  --color-danger: #ffb4ab;
+
+  --font-sans: Inter, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: Inter, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  --shadow-panel:
+    0 18px 40px rgba(0, 0, 0, 0.22), 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
+:root {
+  font: 18px/145% var(--font-sans);
+  letter-spacing: 0.18px;
+  color-scheme: dark;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    font-size: 16px;
+  }
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, rgba(9, 62, 9, 0.28), transparent 40%),
+    var(--color-bg);
+  color: var(--color-text);
+}
+
+#root {
+  width: 100%;
+}
+
+h1,
+h2 {
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+}
+
+@media (max-width: 1024px) {
+  h1 {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+}
+
+@media (max-width: 1024px) {
+  h2 {
+    font-size: 20px;
+  }
+}
+
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--font-mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--color-text);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: rgba(0, 34, 1, 0.72);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
