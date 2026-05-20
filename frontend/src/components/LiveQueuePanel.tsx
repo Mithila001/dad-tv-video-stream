@@ -8,12 +8,14 @@ import { StreamNowPanel } from "./StreamNowPanel";
 export interface LiveQueuePanelProps {
   readonly items?: ReadonlyArray<LiveQueueItem>;
   readonly playlist?: ReadonlyArray<VideoAsset>;
+  readonly streamVariant?: "console" | "player";
   readonly className?: string;
 }
 
 export function LiveQueuePanel({
   items = liveQueueSequence,
   playlist = [],
+  streamVariant = "player",
   className,
 }: LiveQueuePanelProps) {
   return (
@@ -27,6 +29,7 @@ export function LiveQueuePanel({
     >
       <StreamNowPanel
         playlist={playlist}
+        variant={streamVariant}
         className="border-0 bg-transparent shadow-none"
       />
 

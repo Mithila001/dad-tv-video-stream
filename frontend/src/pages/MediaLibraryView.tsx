@@ -31,8 +31,15 @@ export function MediaLibraryView() {
 
     void loadVideos();
 
+    const handleDataUpdated = () => {
+      void loadVideos();
+    };
+
+    window.addEventListener("lobbystream:data-updated", handleDataUpdated);
+
     return () => {
       isActive = false;
+      window.removeEventListener("lobbystream:data-updated", handleDataUpdated);
     };
   }, []);
 
@@ -91,6 +98,13 @@ export function MediaLibraryView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("lobbystream:open-upload"))}
+              className="inline-flex items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            >
+              Upload Video
+            </button>
             <button
               type="button"
               onClick={() => setViewMode("grid")}
@@ -215,6 +229,12 @@ export function MediaLibraryView() {
                     Format
                   </dt>
                   <dd className="mt-1 text-text">{video.format}</dd>
+                </div>
+                <div className="rounded-xl bg-surface-2/60 px-3 py-2">
+                  <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    Category
+                  </dt>
+                  <dd className="mt-1 text-text">{video.category}</dd>
                 </div>
                 <div className="rounded-xl bg-surface-2/60 px-3 py-2">
                   <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">

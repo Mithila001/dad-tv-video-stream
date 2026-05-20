@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useEffect, type ReactNode, useState } from "react";
 import { Upload } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import {
@@ -6,9 +6,11 @@ import {
   defaultSidebarProfile,
   Sidebar,
 } from "./Sidebar";
+import { UploadVideoModal } from "./UploadVideoModal";
 import { TopBar } from "./TopBar";
 import { RoleGate } from "./RoleGate";
 import { defaultUser, useAuth } from "../context/AuthContext";
+import { uploadVideoAsset, type UploadVideoPayload } from "../services/api";
 
 export interface AppShellProps {
   readonly children?: ReactNode;
@@ -16,7 +18,21 @@ export interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const [searchValue, setSearchValue] = useState("");
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const { currentUser, login, logout } = useAuth();
+
+  useEffect(() => {
+    const openUploadModal = () => {
+      setIsUploadModalOpen(true);
+    };
+
+    window.addEventListener("lobbystream:open-upload", openUploadModal);
+
+    return () => {
+      window.removeEventListener("lobbystream:open-upload", openUploadModal);
+    };
+  }, []);
 
   const sidebarProfile = currentUser
     ? {
@@ -28,6 +44,18 @@ export function AppShell({ children }: AppShellProps) {
     : defaultSidebarProfile;
 
   const profileActionLabel = currentUser ? "Logout" : "Login";
+
+  async function handleUpload(payload: UploadVideoPayload) {
+    setIsUploading(true);
+
+    try {
+      await uploadVideoAsset(payload);
+      window.dispatchEvent(new Event("lobbystream:data-updated"));
+      setIsUploadModalOpen(false);
+    } finally {
+      setIsUploading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-bg text-text">
@@ -62,6 +90,7 @@ export function AppShell({ children }: AppShellProps) {
               >
                 <button
                   type="button"
+                  onClick={() => setIsUploadModalOpen(true)}
                   className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                 >
                   <Upload className="h-4 w-4" aria-hidden="true" />
@@ -87,6 +116,13 @@ export function AppShell({ children }: AppShellProps) {
           </main>
         </div>
       </div>
+
+      <UploadVideoModal
+        open={isUploadModalOpen}
+        loading={isUploading}
+        onClose={() => setIsUploadModalOpen(false)}
+        onSubmit={handleUpload}
+      />
     </div>
   );
 }

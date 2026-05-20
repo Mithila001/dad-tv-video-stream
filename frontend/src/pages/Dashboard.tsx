@@ -4,7 +4,7 @@ import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
 import type { LiveQueueItem, VideoAsset } from "../data/mockData";
-import { fetchLiveQueue, fetchVideoLibrary } from "../services/api";
+import { fetchLiveQueue, fetchStreamSync, fetchVideoLibrary } from "../services/api";
 
 export interface DashboardProps {
   readonly className?: string;
@@ -19,6 +19,7 @@ export function Dashboard({ className }: DashboardProps) {
 
   useEffect(() => {
     let isActive = true;
+    let queuePollTimerId: number | null = null;
 
     async function loadDashboardData() {
       setIsLoading(true);
@@ -37,10 +38,38 @@ export function Dashboard({ className }: DashboardProps) {
       setIsLoading(false);
     }
 
+    async function refreshRealtimeStreamData() {
+      const [, queue] = await Promise.all([fetchStreamSync(), fetchLiveQueue()]);
+
+      if (!isActive) {
+        return;
+      }
+
+      setLiveQueue(queue);
+    }
+
     void loadDashboardData();
+    queueMicrotask(() => {
+      void refreshRealtimeStreamData();
+    });
+
+    const handleDataUpdated = () => {
+      void loadDashboardData();
+      void refreshRealtimeStreamData();
+    };
+
+    window.addEventListener("lobbystream:data-updated", handleDataUpdated);
+
+    queuePollTimerId = window.setInterval(() => {
+      void refreshRealtimeStreamData();
+    }, 4000);
 
     return () => {
       isActive = false;
+      if (queuePollTimerId) {
+        window.clearInterval(queuePollTimerId);
+      }
+      window.removeEventListener("lobbystream:data-updated", handleDataUpdated);
     };
   }, []);
 
@@ -113,7 +142,7 @@ export function Dashboard({ className }: DashboardProps) {
         />
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(360px,0.8fr)]">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(380px,0.85fr)]">
         <article className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -163,7 +192,12 @@ export function Dashboard({ className }: DashboardProps) {
           </dl>
         </article>
 
-        <LiveQueuePanel items={liveQueue} playlist={videoLibrary} />
+        <LiveQueuePanel
+          items={liveQueue}
+          playlist={videoLibrary}
+          streamVariant="console"
+          className="p-5"
+        />
       </section>
 
       <section className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">

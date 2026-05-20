@@ -7,6 +7,7 @@ export type UserRole = "Network Operator" | "Viewer";
 export interface VideoAsset {
   readonly id: string;
   readonly title: string;
+  readonly category: string;
   readonly duration: string;
   readonly size: string;
   readonly format: VideoFormat;
@@ -40,7 +41,8 @@ const serverBaseUrl = "http://localhost:5000";
 export const videoLibrary: ReadonlyArray<VideoAsset> = [
   {
     id: "ethereal-highlands-4k",
-    title: "Ethereal Highlands 4K",
+    title: "Ethereal Highlands video 1",
+    category: "Ambient",
     duration: "12:45",
     size: "1.2 GB",
     format: "MP4",
@@ -51,7 +53,8 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
   },
   {
     id: "cybernetic-flow-loop",
-    title: "Cybernetic Flow Loop",
+    title: "Cybernetic Flow Loop video 2",
+    category: "Broadcast",
     duration: "08:15",
     size: "4.8 GB",
     format: "MOV",
@@ -62,7 +65,8 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
   },
   {
     id: "northern-lights-skyward",
-    title: "Northern Lights Skyward",
+    title: "Northern Lights Skyward video 1",
+    category: "Ambient",
     duration: "03:50",
     size: "2.1 GB",
     format: "MP4",
@@ -73,7 +77,8 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
   },
   {
     id: "alpine-reflection-8k",
-    title: "Alpine Reflection 8K",
+    title: "Alpine Reflection 8K video 2",
+    category: "Library",
     duration: "15:00",
     size: "0.9 GB",
     format: "MP4",
@@ -84,7 +89,8 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
   },
   {
     id: "rainforest-canopy-drone",
-    title: "Rainforest Canopy Drone",
+    title: "Rainforest Canopy Drone video 1",
+    category: "Broadcast",
     duration: "04:20",
     size: "5.5 GB",
     format: "MP4",
