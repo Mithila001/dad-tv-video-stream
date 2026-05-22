@@ -30,7 +30,7 @@ const stagedVideoSources = new Map<
   }
 >(
   ["video_1.mp4", "video_2.mp4"].map((fileName) => {
-    const videoUrl = `${serverBaseUrl}/assets/videos/${fileName}`;
+    const videoUrl = `${serverBaseUrl}/videos/${fileName}`;
     const sourceAsset = availableAssets.find(
       (asset) => asset.videoUrl === videoUrl,
     );
@@ -56,7 +56,7 @@ interface UploadVideoRequestBody {
 
 app.use(cors());
 app.use(express.json());
-app.use("/assets", express.static(path.resolve(__dirname, "../assets")));
+app.use("/videos", express.static(path.resolve(__dirname, "../assets/videos")));
 
 function durationToSeconds(duration: string): number {
   const [minutes = "0", seconds = "0"] = duration.split(":");
