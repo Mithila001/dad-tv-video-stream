@@ -183,7 +183,6 @@ setInterval(() => {
     advanceStreamToNextVideo();
     return;
   }
-
 }, 1000);
 
 app.get("/api/videos", (_request, response) => {
