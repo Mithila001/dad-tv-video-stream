@@ -56,10 +56,7 @@ interface UploadVideoRequestBody {
 
 app.use(cors());
 app.use(express.json());
-app.use(
-  "/videos",
-  express.static(path.resolve(__dirname, "../assets/videos")),
-);
+app.use("/videos", express.static(path.resolve(__dirname, "../assets/videos")));
 
 function durationToSeconds(duration: string): number {
   const [minutes = "0", seconds = "0"] = duration.split(":");
