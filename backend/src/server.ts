@@ -108,50 +108,8 @@ function createQueueItem(video: VideoAsset): LiveQueueItem {
 }
 
 function updateRuntimeQueue() {
-  const streamPlaylist = getStreamPlaylist();
-  const activeVideo = streamPlaylist[streamState.currentIndex];
-  const activeSourceVideoId = activeVideo?.id;
-
-  const activeQueueIndex = runtimeQueue.findIndex(
-    (item) => item.sourceVideoId === activeSourceVideoId,
-  );
-
-  if (activeQueueIndex > 0) {
-    const [activeQueueItem] = runtimeQueue.splice(activeQueueIndex, 1);
-    runtimeQueue.unshift(activeQueueItem);
-  }
-
-  let minutesUntilStart = Math.ceil(
-    (streamState.durationSeconds - streamState.currentTimeSeconds) / 60,
-  );
-  minutesUntilStart = Math.max(0, minutesUntilStart);
-
-  for (let index = 0; index < runtimeQueue.length; index += 1) {
-    const queueItem = runtimeQueue[index];
-    if (index === 0) {
-      runtimeQueue[index] = {
-        ...queueItem,
-        status: "playing",
-        startsInMinutes: undefined,
-      };
-      continue;
-    }
-
-    const itemVideo = availableAssets.find(
-      (video) => video.id === queueItem.sourceVideoId,
-    );
-    const itemDurationMinutes = Math.ceil(
-      durationToSeconds(itemVideo?.duration ?? "0:00") / 60,
-    );
-
-    runtimeQueue[index] = {
-      ...queueItem,
-      status: "upcoming",
-      startsInMinutes: minutesUntilStart,
-    };
-
-    minutesUntilStart += Math.max(1, itemDurationMinutes);
-  }
+  // Keep the live queue order stable; stream timing is tracked separately.
+  return;
 }
 
 function advanceStreamToNextVideo() {
@@ -168,7 +126,6 @@ function advanceStreamToNextVideo() {
     streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
-  updateRuntimeQueue();
 }
 
 function moveStreamByOffset(offset: number) {
@@ -187,7 +144,6 @@ function moveStreamByOffset(offset: number) {
     streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
-  updateRuntimeQueue();
 }
 
 function buildSyncPayload() {
@@ -228,10 +184,7 @@ setInterval(() => {
     return;
   }
 
-  updateRuntimeQueue();
 }, 1000);
-
-updateRuntimeQueue();
 
 app.get("/api/videos", (_request, response) => {
   response.json(availableAssets);
