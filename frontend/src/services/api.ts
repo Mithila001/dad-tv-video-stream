@@ -1,12 +1,31 @@
-import {
-  liveQueueSequence,
-  type LiveQueueItem,
-  type VideoAsset,
-  videoLibrary,
-} from "../data/mockData";
 import type { AuthUser } from "../context/AuthContext";
 
 export const API_BASE_URL = "/api";
+
+export type VideoFormat = "MP4" | "MOV";
+
+export type LiveQueueStatus = "playing" | "upcoming";
+
+export interface VideoAsset {
+  readonly id: string;
+  readonly title: string;
+  readonly category: string;
+  readonly duration: string;
+  readonly size: string;
+  readonly format: VideoFormat;
+  readonly uploadDate: string;
+  readonly thumbnailUrl: string;
+  readonly videoUrl?: string;
+}
+
+export interface LiveQueueItem {
+  readonly id: string;
+  readonly title: string;
+  readonly thumbnailUrl: string;
+  readonly status: LiveQueueStatus;
+  readonly startsInMinutes?: number;
+  readonly sourceVideoId: string;
+}
 
 export interface StreamSyncResponse {
   readonly videoId: string;
@@ -31,10 +50,7 @@ export interface UploadVideoResponse {
   readonly video: VideoAsset;
 }
 
-async function fetchJson<T>(
-  url: string,
-  fallback: ReadonlyArray<T>,
-): Promise<ReadonlyArray<T>> {
+async function fetchJson<T>(url: string): Promise<ReadonlyArray<T>> {
   try {
     const response = await fetch(url);
 
@@ -46,26 +62,23 @@ async function fetchJson<T>(
 
     return (await response.json()) as ReadonlyArray<T>;
   } catch {
-    return fallback;
+    return [];
   }
 }
 
 export async function fetchVideoLibrary(): Promise<ReadonlyArray<VideoAsset>> {
-  return fetchJson<VideoAsset>(`${API_BASE_URL}/api/videos`, videoLibrary);
+  return fetchJson<VideoAsset>(`${API_BASE_URL}/videos`);
 }
 
 export async function fetchLiveQueue(): Promise<ReadonlyArray<LiveQueueItem>> {
-  return fetchJson<LiveQueueItem>(
-    `${API_BASE_URL}/api/queue`,
-    liveQueueSequence,
-  );
+  return fetchJson<LiveQueueItem>(`${API_BASE_URL}/queue`);
 }
 
 export async function loginUser(
   username: string,
   password: string,
 ): Promise<AuthUser> {
-  const response = await fetch(`${API_BASE_URL}/api/login`, {
+  const response = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +96,7 @@ export async function loginUser(
 }
 
 export async function fetchStreamSync(): Promise<StreamSyncResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/stream/sync`);
+  const response = await fetch(`${API_BASE_URL}/stream/sync`);
 
   if (!response.ok) {
     throw new Error("Unable to fetch stream sync state");
@@ -95,7 +108,7 @@ export async function fetchStreamSync(): Promise<StreamSyncResponse> {
 export async function sendStreamControl(
   command: StreamControlCommand,
 ): Promise<StreamSyncResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/stream/control`, {
+  const response = await fetch(`${API_BASE_URL}/stream/control`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -113,7 +126,7 @@ export async function sendStreamControl(
 export async function uploadVideoAsset(
   payload: UploadVideoPayload,
 ): Promise<UploadVideoResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/videos/upload`, {
+  const response = await fetch(`${API_BASE_URL}/videos/upload`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

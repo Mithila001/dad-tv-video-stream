@@ -8,7 +8,7 @@ import {
   SkipForward,
   Volume2,
 } from 'lucide-react'
-import type { VideoAsset } from '../data/mockData'
+import type { VideoAsset } from '../services/api'
 import {
   fetchStreamSync,
   sendStreamControl,

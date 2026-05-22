@@ -1,8 +1,4 @@
-import {
-  liveQueueSequence,
-  type LiveQueueItem,
-  type VideoAsset,
-} from "../data/mockData";
+import type { LiveQueueItem, VideoAsset } from "../services/api";
 import { StreamNowPanel } from "./StreamNowPanel";
 
 export interface LiveQueuePanelProps {
@@ -13,7 +9,7 @@ export interface LiveQueuePanelProps {
 }
 
 export function LiveQueuePanel({
-  items = liveQueueSequence,
+  items = [],
   playlist = [],
   streamVariant = "player",
   className,

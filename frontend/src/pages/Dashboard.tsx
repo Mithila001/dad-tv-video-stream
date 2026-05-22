@@ -3,8 +3,9 @@ import { Clock3, Gauge, PencilLine, Trash2, Tv2 } from "lucide-react";
 import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
-import type { LiveQueueItem, VideoAsset } from "../data/mockData";
 import {
+  type LiveQueueItem,
+  type VideoAsset,
   fetchLiveQueue,
   fetchStreamSync,
   fetchVideoLibrary,
