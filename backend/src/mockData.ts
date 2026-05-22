@@ -49,7 +49,7 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
     uploadDate: "2023-10-12",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuB4DPH2ib_AA9DQhzFreHOKkMlWWp9WPyOn2GKIc-QORQ7mPbXgkA2H-ZzAz_mPzsZwRlTjChymOI5eiuwErW_WXKe98FNPDUV5-2E1U87K5SAMD-WJxAogWKZrKOZ29T02gCmtjFRv3SnhUdyg0Cgv3qVcRTbtLUQo9xDHmlXD86Bfqbhd6AIxK1GpKVbxvmjSrj4DlAMFKxsaUdqDQmczaNkbEA9LllTE3FmFqDcVAs6TzyU56eUYZNtEq5X2XbzIRm9seMSHjz0",
-    videoUrl: `${serverBaseUrl}/assets/videos/video_1.mp4`,
+    videoUrl: `${serverBaseUrl}/videos/video_1.mp4`,
   },
   {
     id: "cybernetic-flow-loop",
@@ -61,7 +61,7 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
     uploadDate: "2023-10-11",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAUFSkLqPot-MkRPAALKpRABKrq2RZgx47W7iRlN9t6sfQKhYKUlaDZdhMwqDv5wDZYP2aez5KXYb_a3wNQYyN65qI49zLVPyQY-2qKH_4IdM-8vRhsdEtmPXeWPCUbGeB_MwjBt05_owa64wu4sp35WBBqbkvBFZ9B0LXlNR4flQLfe8kSQFvp03-zVeN7mkhKhmeFv8wAchzrkAbTXO80GDjI-o1spGQ-gaNYuglhx2lIVMKABw5sXG3eYGPRdxFQKmMMIC_SRbI",
-    videoUrl: `${serverBaseUrl}/assets/videos/video_2.mp4`,
+    videoUrl: `${serverBaseUrl}/videos/video_2.mp4`,
   },
   {
     id: "northern-lights-skyward",
@@ -73,7 +73,7 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
     uploadDate: "2023-10-10",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuB4wBq1mjmn9r0Jg4H-N_yzs0d7IP-4wumdFrCX19MiH-MwR-qsdCrCyksRPJ4RSjxncpIGOkCcns8bN-KhLXlLS_qqUwcyvpTawh3-PBM-D-sWKYFyugN-ApxHxQbF4qaeuJ39E0ABZZYIP1SmAtDreoqfBm99XblzwyCE1swRV9L_rAwJgoxrzeTxYUuOedds4cquxjfvyBCxw8QnAHrMwQ0IWqKLO7MnHqyLc-GjHkwAs-HSygWNFKBgKnQfo0e4b2gwPkKlLDg",
-    videoUrl: `${serverBaseUrl}/assets/videos/video_1.mp4`,
+    videoUrl: `${serverBaseUrl}/videos/video_1.mp4`,
   },
   {
     id: "alpine-reflection-8k",
@@ -85,7 +85,7 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
     uploadDate: "2023-10-09",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAtj_wF3QZUS-8PL9tVWEQKv9T9CpFeewpkTdZpSOJPFt_3fyNz_oXINog-nSo3enzdBwZ8JA5KPD3-gEbZxtwoNRTOre9Pp04xlkLGXW0O0O1XMF-6EZWuC9nySjadx75buwfU59J_9a4pJxlkMPgwlvMlTaPzLyM2Uy8mA1-kZSSEFPwcpfF3trPoK8KKvmbRuZz-RpJOXLNC5_LkyGdRkuTJ_ce7QStWoWWf-_To1bTr3hAqc3uzDIapoupun2oGdyY5v84Xuyk",
-    videoUrl: `${serverBaseUrl}/assets/videos/video_2.mp4`,
+    videoUrl: `${serverBaseUrl}/videos/video_2.mp4`,
   },
   {
     id: "rainforest-canopy-drone",
@@ -97,7 +97,7 @@ export const videoLibrary: ReadonlyArray<VideoAsset> = [
     uploadDate: "2023-10-08",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuC41M8gwaLvuf4hoejlvKQRpBx6Y30RpybjKHLKV-ANfEfnSQ9mkxRzws7VLDyd8sEI0G4h5YZv8KImlipMNrb_oup1kGkmiQ3ZokCYrrJ0i9OHY9fqY7WK1UrtJjZQPyZ1K-kXmZpHg1Fly6T_cXLsufygMaOKUMsNrKCj1naEs2IYhvILaLVqgMpIArTX3lAI4-tLx42Vwk87SXPEffwkwPQbWx_kV4TaUWk1SATy7XhLRZs_MI-KqA_aJHnP1-hFXGrj-X-8JSw",
-    videoUrl: `${serverBaseUrl}/assets/videos/video_1.mp4`,
+    videoUrl: `${serverBaseUrl}/videos/video_1.mp4`,
   },
 ];
 
