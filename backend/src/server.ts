@@ -13,7 +13,7 @@ import {
 
 const app = express();
 const port = 5000;
-const serverBaseUrl = `http://localhost:${port}`;
+const serverBaseUrl = "";
 const availableAssets: VideoAsset[] = videoLibrary.map((asset) => ({
   ...asset,
 }));

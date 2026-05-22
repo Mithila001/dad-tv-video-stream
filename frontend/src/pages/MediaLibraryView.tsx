@@ -181,7 +181,7 @@ export function MediaLibraryView() {
             ? "Loading assets..."
             : `${filteredVideos.length} assets available`}
         </span>
-        <span>Backend source: http://localhost:5000/api/videos</span>
+        <span>Backend source: /api/videos</span>
       </div>
 
       <div

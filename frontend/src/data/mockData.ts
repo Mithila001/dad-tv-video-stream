@@ -34,7 +34,7 @@ export const videoLibrary = [
     uploadDate: "2023-10-12",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuB4DPH2ib_AA9DQhzFreHOKkMlWWp9WPyOn2GKIc-QORQ7mPbXgkA2H-ZzAz_mPzsZwRlTjChymOI5eiuwErW_WXKe98FNPDUV5-2E1U87K5SAMD-WJxAogWKZrKOZ29T02gCmtjFRv3SnhUdyg0Cgv3qVcRTbtLUQo9xDHmlXD86Bfqbhd6AIxK1GpKVbxvmjSrj4DlAMFKxsaUdqDQmczaNkbEA9LllTE3FmFqDcVAs6TzyU56eUYZNtEq5X2XbzIRm9seMSHjz0",
-    videoUrl: "http://localhost:5000/assets/videos/video_1.mp4",
+    videoUrl: "/assets/videos/video_1.mp4",
   },
   {
     id: "cybernetic-flow-loop",
@@ -46,7 +46,7 @@ export const videoLibrary = [
     uploadDate: "2023-10-11",
     thumbnailUrl:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAUFSkLqPot-MkRPAALKpRABKrq2RZgx47W7iRlN9t6sfQKhYKUlaDZdhMwqDv5wDZYP2aez5KXYb_a3wNQYyN65qI49zLVPyQY-2qKH_4IdM-8vRhsdEtmPXeWPCUbGeB_MwjBt05_owa64wu4sp35WBBqbkvBFZ9B0LXlNR4flQLfe8kSQFvp03-zVeN7mkhKhmeFv8wAchzrkAbTXO80GDjI-o1spGQ-gaNYuglhx2lIVMKABw5sXG3eYGPRdxFQKmMMIC_SRbI",
-    videoUrl: "http://localhost:5000/assets/videos/video_2.mp4",
+    videoUrl: "/assets/videos/video_2.mp4",
   },
   {
     id: "northern-lights-skyward",
