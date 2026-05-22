@@ -36,7 +36,7 @@ export interface AuthenticatedUser {
   readonly role: UserRole;
 }
 
-const serverBaseUrl = "http://localhost:5000";
+const serverBaseUrl = "";
 
 export const videoLibrary: ReadonlyArray<VideoAsset> = [
   {

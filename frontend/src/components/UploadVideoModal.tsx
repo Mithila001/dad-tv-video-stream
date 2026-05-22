@@ -5,11 +5,11 @@ import type { UploadVideoPayload } from "../services/api";
 const stagedVideoChoices = [
   {
     label: "video_1.mp4",
-    value: "http://localhost:5000/assets/videos/video_1.mp4",
+    value: "/assets/videos/video_1.mp4",
   },
   {
     label: "video_2.mp4",
-    value: "http://localhost:5000/assets/videos/video_2.mp4",
+    value: "/assets/videos/video_2.mp4",
   },
 ] as const;
 

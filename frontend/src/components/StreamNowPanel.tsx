@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Fullscreen,
   Maximize,
@@ -7,267 +7,270 @@ import {
   SkipBack,
   SkipForward,
   Volume2,
-} from 'lucide-react'
-import type { VideoAsset } from '../data/mockData'
+} from "lucide-react";
+import type { VideoAsset } from "../services/api";
 import {
   fetchStreamSync,
   sendStreamControl,
   type StreamControlCommand,
   type StreamSyncResponse,
-} from '../services/api'
+} from "../services/api";
 
 export interface StreamNowPanelProps {
-  readonly playlist: ReadonlyArray<VideoAsset>
-  readonly className?: string
-  readonly variant?: 'console' | 'player'
+  readonly playlist: ReadonlyArray<VideoAsset>;
+  readonly className?: string;
+  readonly variant?: "console" | "player";
 }
 
 function formatClock(seconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(seconds))
-  const minutes = Math.floor(safeSeconds / 60)
-  const remainingSeconds = safeSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 export function StreamNowPanel({
   playlist,
   className,
-  variant = 'player',
+  variant = "player",
 }: StreamNowPanelProps) {
-  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null)
-  const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null)
-  const [syncTargetTime, setSyncTargetTime] = useState(0)
-  const [durationSeconds, setDurationSeconds] = useState(1)
-  const [isPlaying, setIsPlaying] = useState(true)
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isMuted, setIsMuted] = useState(true)
-  const [hasConnectedAudio, setHasConnectedAudio] = useState(false)
-  const videoRef = useRef<HTMLVideoElement | null>(null)
-  const syncPollTimerRef = useRef<number | null>(null)
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
+  const [syncTargetTime, setSyncTargetTime] = useState(0);
+  const [durationSeconds, setDurationSeconds] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
+  const [hasConnectedAudio, setHasConnectedAudio] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const syncPollTimerRef = useRef<number | null>(null);
 
   const currentVideo = useMemo(
     () => playlist.find((video) => video.id === currentVideoId) ?? playlist[0],
     [currentVideoId, playlist],
-  )
+  );
 
   const videoSource = useMemo(
     () => currentVideo?.videoUrl ?? fallbackVideoUrl ?? undefined,
     [currentVideo, fallbackVideoUrl],
-  )
+  );
 
   const applySyncState = useCallback((syncState: StreamSyncResponse) => {
-    setCurrentVideoId(syncState.videoId)
-    setFallbackVideoUrl(syncState.videoUrl)
-    setSyncTargetTime(syncState.currentTime)
-    setDurationSeconds(Math.max(1, syncState.durationSeconds))
-    setIsPlaying(syncState.isPlaying)
-  }, [])
+    setCurrentVideoId(syncState.videoId);
+    setFallbackVideoUrl(syncState.videoUrl);
+    setSyncTargetTime(syncState.currentTime);
+    setDurationSeconds(Math.max(1, syncState.durationSeconds));
+    setIsPlaying(syncState.isPlaying);
+  }, []);
 
   const syncFromServer = useCallback(async () => {
     try {
-      const syncState = await fetchStreamSync()
-      applySyncState(syncState)
+      const syncState = await fetchStreamSync();
+      applySyncState(syncState);
     } catch {
       // Keep local playback running until sync endpoint responds again.
     }
-  }, [applySyncState])
+  }, [applySyncState]);
 
   const runControlCommand = useCallback(
     (command: StreamControlCommand) => {
       void sendStreamControl(command)
         .then((syncState) => {
-          applySyncState(syncState)
+          applySyncState(syncState);
         })
-        .catch(() => undefined)
+        .catch(() => undefined);
     },
     [applySyncState],
-  )
+  );
 
   useEffect(() => {
     queueMicrotask(() => {
-      void syncFromServer()
-    })
+      void syncFromServer();
+    });
 
     syncPollTimerRef.current = window.setInterval(() => {
-      void syncFromServer()
-    }, 4000)
+      void syncFromServer();
+    }, 4000);
 
     const handleVisibilityOrFocus = () => {
-      void syncFromServer()
-      if (variant === 'player') {
-        void videoRef.current?.play().catch(() => undefined)
+      void syncFromServer();
+      if (variant === "player") {
+        void videoRef.current?.play().catch(() => undefined);
       }
-    }
+    };
 
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
-    window.addEventListener('focus', handleVisibilityOrFocus)
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+    window.addEventListener("focus", handleVisibilityOrFocus);
 
     return () => {
       if (syncPollTimerRef.current) {
-        window.clearInterval(syncPollTimerRef.current)
+        window.clearInterval(syncPollTimerRef.current);
       }
 
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
-      window.removeEventListener('focus', handleVisibilityOrFocus)
-    }
-  }, [syncFromServer, variant])
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+    };
+  }, [syncFromServer, variant]);
 
   useEffect(() => {
-    if (variant !== 'player') {
-      return
+    if (variant !== "player") {
+      return;
     }
 
-    const videoElement = videoRef.current
+    const videoElement = videoRef.current;
 
     if (!videoElement) {
-      return
+      return;
     }
 
     if (isPlaying) {
-      void videoElement.play().catch(() => undefined)
-      return
+      void videoElement.play().catch(() => undefined);
+      return;
     }
 
-    videoElement.pause()
-  }, [isPlaying, variant, videoSource])
+    videoElement.pause();
+  }, [isPlaying, variant, videoSource]);
 
   useEffect(() => {
-    if (variant !== 'player') {
-      return
+    if (variant !== "player") {
+      return;
     }
 
-    const videoElement = videoRef.current
+    const videoElement = videoRef.current;
 
     if (!videoElement || !videoSource) {
-      return
+      return;
     }
 
     const handleLoadedMetadata = () => {
-      const targetTime = Math.max(0, syncTargetTime)
+      const targetTime = Math.max(0, syncTargetTime);
       const safeTargetTime = Math.min(
         targetTime,
         Math.max(0, videoElement.duration - 0.25),
-      )
+      );
 
-      videoElement.currentTime = safeTargetTime
+      videoElement.currentTime = safeTargetTime;
       if (isPlaying) {
-        void videoElement.play().catch(() => undefined)
-        return
+        void videoElement.play().catch(() => undefined);
+        return;
       }
 
-      videoElement.pause()
-    }
+      videoElement.pause();
+    };
 
-    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata)
+    videoElement.addEventListener("loadedmetadata", handleLoadedMetadata);
 
     return () => {
-      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
-    }
-  }, [isPlaying, syncTargetTime, variant, videoSource])
+      videoElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
+    };
+  }, [isPlaying, syncTargetTime, variant, videoSource]);
 
   useEffect(() => {
-    if (variant !== 'player') {
-      return
+    if (variant !== "player") {
+      return;
     }
 
-    const videoElement = videoRef.current
+    const videoElement = videoRef.current;
 
     if (!videoElement) {
-      return
+      return;
     }
 
-    const driftSeconds = Math.abs(videoElement.currentTime - syncTargetTime)
+    const driftSeconds = Math.abs(videoElement.currentTime - syncTargetTime);
     if (driftSeconds > 1.2) {
-      videoElement.currentTime = syncTargetTime
+      videoElement.currentTime = syncTargetTime;
     }
-  }, [syncTargetTime, variant])
+  }, [syncTargetTime, variant]);
 
   useEffect(() => {
-    if (variant !== 'player') {
-      return
+    if (variant !== "player") {
+      return;
     }
 
     const handleFullscreenChange = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement))
-    }
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
 
     return () => {
-      document.removeEventListener('fullscreenchange', handleFullscreenChange)
-    }
-  }, [variant])
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, [variant]);
 
   useEffect(() => {
-    if (variant !== 'player') {
-      return
+    if (variant !== "player") {
+      return;
     }
 
     const handleSpacebarToggle = (event: KeyboardEvent) => {
-      if (event.code !== 'Space') {
-        return
+      if (event.code !== "Space") {
+        return;
       }
 
       if (
         event.target instanceof HTMLElement &&
-        (event.target.tagName === 'INPUT' ||
-          event.target.tagName === 'TEXTAREA' ||
+        (event.target.tagName === "INPUT" ||
+          event.target.tagName === "TEXTAREA" ||
           event.target.isContentEditable)
       ) {
-        return
+        return;
       }
 
-      event.preventDefault()
-      runControlCommand(isPlaying ? 'pause' : 'play')
-    }
+      event.preventDefault();
+      runControlCommand(isPlaying ? "pause" : "play");
+    };
 
-    window.addEventListener('keydown', handleSpacebarToggle)
+    window.addEventListener("keydown", handleSpacebarToggle);
     return () => {
-      window.removeEventListener('keydown', handleSpacebarToggle)
-    }
-  }, [isPlaying, runControlCommand, variant])
+      window.removeEventListener("keydown", handleSpacebarToggle);
+    };
+  }, [isPlaying, runControlCommand, variant]);
 
   const handleTogglePlay = () => {
-    runControlCommand(isPlaying ? 'pause' : 'play')
-  }
+    runControlCommand(isPlaying ? "pause" : "play");
+  };
 
   const handleSkipNext = () => {
-    runControlCommand('next')
-  }
+    runControlCommand("next");
+  };
 
   const handleSkipPrevious = () => {
-    runControlCommand('previous')
-  }
+    runControlCommand("previous");
+  };
 
   const handleConnectAudio = async () => {
-    const videoElement = videoRef.current
+    const videoElement = videoRef.current;
 
     if (!videoElement) {
-      return
+      return;
     }
 
-    videoElement.muted = false
-    setIsMuted(false)
-    setHasConnectedAudio(true)
-    await videoElement.play().catch(() => undefined)
-  }
+    videoElement.muted = false;
+    setIsMuted(false);
+    setHasConnectedAudio(true);
+    await videoElement.play().catch(() => undefined);
+  };
 
   const handleFullscreen = async () => {
-    const videoElement = videoRef.current
+    const videoElement = videoRef.current;
 
-    if (!videoElement || variant !== 'player') {
-      return
+    if (!videoElement || variant !== "player") {
+      return;
     }
 
     if (document.fullscreenElement) {
-      await document.exitFullscreen()
-      return
+      await document.exitFullscreen();
+      return;
     }
 
-    await videoElement.parentElement?.requestFullscreen()
-  }
+    await videoElement.parentElement?.requestFullscreen();
+  };
 
-  const progressPercent = Math.min(100, (syncTargetTime / durationSeconds) * 100)
+  const progressPercent = Math.min(
+    100,
+    (syncTargetTime / durationSeconds) * 100,
+  );
 
   const controlButtons = (
     <div className="grid grid-cols-4 gap-2">
@@ -283,7 +286,7 @@ export function StreamNowPanel({
         type="button"
         onClick={handleTogglePlay}
         className="inline-flex items-center justify-center rounded-xl bg-accent px-3 py-3 text-bg transition hover:bg-accent-strong"
-        aria-label={isPlaying ? 'Pause' : 'Play'}
+        aria-label={isPlaying ? "Pause" : "Play"}
       >
         {isPlaying ? (
           <Pause className="h-4 w-4" aria-hidden="true" />
@@ -299,7 +302,7 @@ export function StreamNowPanel({
       >
         <SkipForward className="h-4 w-4" aria-hidden="true" />
       </button>
-      {variant === 'player' ? (
+      {variant === "player" ? (
         <button
           type="button"
           onClick={handleFullscreen}
@@ -314,28 +317,28 @@ export function StreamNowPanel({
         </button>
       ) : (
         <div className="rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-center text-xs font-semibold uppercase tracking-[0.14em] text-success">
-          {isPlaying ? 'On Air' : 'Paused'}
+          {isPlaying ? "On Air" : "Paused"}
         </div>
       )}
     </div>
-  )
+  );
 
-  if (variant === 'console') {
+  if (variant === "console") {
     return (
       <section
         className={[
-          'overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-panel',
+          "overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-panel",
           className,
         ]
           .filter(Boolean)
-          .join(' ')}
+          .join(" ")}
       >
         <div className="border-b border-border/70 px-5 py-4">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
             Broadcast Console
           </p>
           <h3 className="mt-1 text-lg font-semibold text-text">
-            {currentVideo?.title ?? 'No active stream'}
+            {currentVideo?.title ?? "No active stream"}
           </h3>
         </div>
 
@@ -357,10 +360,10 @@ export function StreamNowPanel({
 
           <div className="grid gap-2 text-sm text-text-muted sm:grid-cols-3">
             <div className="rounded-xl bg-surface-2/60 px-3 py-2">
-              Status: {isPlaying ? 'Playing' : 'Paused'}
+              Status: {isPlaying ? "Playing" : "Paused"}
             </div>
             <div className="rounded-xl bg-surface-2/60 px-3 py-2">
-              Source: {currentVideo?.format ?? 'LIVE'}
+              Source: {currentVideo?.format ?? "LIVE"}
             </div>
             <div className="rounded-xl bg-surface-2/60 px-3 py-2">
               Runtime: {formatClock(syncTargetTime)}
@@ -370,17 +373,17 @@ export function StreamNowPanel({
           {controlButtons}
         </div>
       </section>
-    )
+    );
   }
 
   return (
     <section
       className={[
-        'overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-panel',
+        "overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-panel",
         className,
       ]
         .filter(Boolean)
-        .join(' ')}
+        .join(" ")}
     >
       <div className="flex items-center justify-between gap-4 border-b border-border/70 px-5 py-4">
         <div>
@@ -388,12 +391,12 @@ export function StreamNowPanel({
             Playing Now
           </p>
           <h3 className="mt-1 text-lg font-semibold text-text">
-            {currentVideo?.title ?? 'No active stream'}
+            {currentVideo?.title ?? "No active stream"}
           </h3>
         </div>
 
         <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success ring-1 ring-success/25">
-          {currentVideo?.format ?? 'LIVE'}
+          {currentVideo?.format ?? "LIVE"}
         </span>
       </div>
 
@@ -409,7 +412,9 @@ export function StreamNowPanel({
                 muted
                 playsInline
                 loop={false}
-                onVolumeChange={() => setIsMuted(Boolean(videoRef.current?.muted))}
+                onVolumeChange={() =>
+                  setIsMuted(Boolean(videoRef.current?.muted))
+                }
               />
 
               {isMuted && (
@@ -439,24 +444,24 @@ export function StreamNowPanel({
                 Stream Details
               </p>
               <p className="mt-2 text-sm font-semibold text-text">
-                {currentVideo?.title ?? 'Unknown asset'}
+                {currentVideo?.title ?? "Unknown asset"}
               </p>
               <p className="text-sm text-text-muted">
                 {currentVideo
                   ? `${currentVideo.duration} • ${currentVideo.size}`
-                  : 'Waiting for media source'}
+                  : "Waiting for media source"}
               </p>
             </div>
 
             <div className="grid gap-2 text-sm text-text-muted">
               <div className="rounded-xl bg-surface-2/60 px-3 py-2">
-                Playback: {isPlaying ? 'Playing' : 'Paused'}
+                Playback: {isPlaying ? "Playing" : "Paused"}
               </div>
               <div className="rounded-xl bg-surface-2/60 px-3 py-2">
-                Audio:{' '}
+                Audio:{" "}
                 {hasConnectedAudio && !isMuted
-                  ? 'Unmuted'
-                  : 'Muted (autoplay-safe)'}
+                  ? "Unmuted"
+                  : "Muted (autoplay-safe)"}
               </div>
               <div className="rounded-xl bg-surface-2/60 px-3 py-2">
                 Runtime: {formatClock(syncTargetTime)}
@@ -468,5 +473,5 @@ export function StreamNowPanel({
         </div>
       </div>
     </section>
-  )
+  );
 }

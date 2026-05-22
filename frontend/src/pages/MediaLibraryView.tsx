@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Grid2X2, List, Search, SlidersHorizontal } from "lucide-react";
-import type { VideoAsset } from "../data/mockData";
-import { fetchVideoLibrary } from "../services/api";
+import { fetchVideoLibrary, type VideoAsset } from "../services/api";
 
 type ViewMode = "grid" | "list";
 type SortMode = "newest" | "oldest" | "title";
@@ -181,7 +180,7 @@ export function MediaLibraryView() {
             ? "Loading assets..."
             : `${filteredVideos.length} assets available`}
         </span>
-        <span>Backend source: http://localhost:5000/api/videos</span>
+        <span>Backend source: /api/videos</span>
       </div>
 
       <div
