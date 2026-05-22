@@ -4,7 +4,11 @@ import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
 import type { LiveQueueItem, VideoAsset } from "../data/mockData";
-import { fetchLiveQueue, fetchStreamSync, fetchVideoLibrary } from "../services/api";
+import {
+  fetchLiveQueue,
+  fetchStreamSync,
+  fetchVideoLibrary,
+} from "../services/api";
 
 export interface DashboardProps {
   readonly className?: string;
@@ -39,7 +43,10 @@ export function Dashboard({ className }: DashboardProps) {
     }
 
     async function refreshRealtimeStreamData() {
-      const [, queue] = await Promise.all([fetchStreamSync(), fetchLiveQueue()]);
+      const [, queue] = await Promise.all([
+        fetchStreamSync(),
+        fetchLiveQueue(),
+      ]);
 
       if (!isActive) {
         return;

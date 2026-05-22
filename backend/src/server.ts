@@ -14,8 +14,12 @@ import {
 const app = express();
 const port = 5000;
 const serverBaseUrl = `http://localhost:${port}`;
-const availableAssets: VideoAsset[] = videoLibrary.map((asset) => ({ ...asset }));
-const runtimeQueue: LiveQueueItem[] = liveQueueSequence.map((item) => ({ ...item }));
+const availableAssets: VideoAsset[] = videoLibrary.map((asset) => ({
+  ...asset,
+}));
+const runtimeQueue: LiveQueueItem[] = liveQueueSequence.map((item) => ({
+  ...item,
+}));
 
 const stagedVideoSources = new Map<
   string,
@@ -27,12 +31,15 @@ const stagedVideoSources = new Map<
 >(
   ["video_1.mp4", "video_2.mp4"].map((fileName) => {
     const videoUrl = `${serverBaseUrl}/assets/videos/${fileName}`;
-    const sourceAsset = availableAssets.find((asset) => asset.videoUrl === videoUrl);
+    const sourceAsset = availableAssets.find(
+      (asset) => asset.videoUrl === videoUrl,
+    );
 
     return [
       videoUrl,
       {
-        thumbnailUrl: sourceAsset?.thumbnailUrl ?? availableAssets[0]?.thumbnailUrl ?? "",
+        thumbnailUrl:
+          sourceAsset?.thumbnailUrl ?? availableAssets[0]?.thumbnailUrl ?? "",
         size: sourceAsset?.size ?? "1.0 GB",
         format: sourceAsset?.format ?? "MP4",
       },
@@ -75,7 +82,9 @@ interface StreamRuntimeState {
 const streamState: StreamRuntimeState = {
   currentIndex: 0,
   startedAtMs: Date.now(),
-  durationSeconds: durationToSeconds(getStreamPlaylist()[0]?.duration ?? "0:00"),
+  durationSeconds: durationToSeconds(
+    getStreamPlaylist()[0]?.duration ?? "0:00",
+  ),
   currentTimeSeconds: 0,
   isPlaying: true,
 };
@@ -99,50 +108,8 @@ function createQueueItem(video: VideoAsset): LiveQueueItem {
 }
 
 function updateRuntimeQueue() {
-  const streamPlaylist = getStreamPlaylist();
-  const activeVideo = streamPlaylist[streamState.currentIndex];
-  const activeSourceVideoId = activeVideo?.id;
-
-  const activeQueueIndex = runtimeQueue.findIndex(
-    (item) => item.sourceVideoId === activeSourceVideoId,
-  );
-
-  if (activeQueueIndex > 0) {
-    const [activeQueueItem] = runtimeQueue.splice(activeQueueIndex, 1);
-    runtimeQueue.unshift(activeQueueItem);
-  }
-
-  let minutesUntilStart = Math.ceil(
-    (streamState.durationSeconds - streamState.currentTimeSeconds) / 60,
-  );
-  minutesUntilStart = Math.max(0, minutesUntilStart);
-
-  for (let index = 0; index < runtimeQueue.length; index += 1) {
-    const queueItem = runtimeQueue[index];
-    if (index === 0) {
-      runtimeQueue[index] = {
-        ...queueItem,
-        status: "playing",
-        startsInMinutes: undefined,
-      };
-      continue;
-    }
-
-    const itemVideo = availableAssets.find(
-      (video) => video.id === queueItem.sourceVideoId,
-    );
-    const itemDurationMinutes = Math.ceil(
-      durationToSeconds(itemVideo?.duration ?? "0:00") / 60,
-    );
-
-    runtimeQueue[index] = {
-      ...queueItem,
-      status: "upcoming",
-      startsInMinutes: minutesUntilStart,
-    };
-
-    minutesUntilStart += Math.max(1, itemDurationMinutes);
-  }
+  // Keep the live queue order stable; stream timing is tracked separately.
+  return;
 }
 
 function advanceStreamToNextVideo() {
@@ -152,13 +119,13 @@ function advanceStreamToNextVideo() {
     return;
   }
 
-  streamState.currentIndex = (streamState.currentIndex + 1) % streamPlaylist.length;
+  streamState.currentIndex =
+    (streamState.currentIndex + 1) % streamPlaylist.length;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
     streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
-  updateRuntimeQueue();
 }
 
 function moveStreamByOffset(offset: number) {
@@ -177,7 +144,6 @@ function moveStreamByOffset(offset: number) {
     streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
-  updateRuntimeQueue();
 }
 
 function buildSyncPayload() {
@@ -218,10 +184,7 @@ setInterval(() => {
     return;
   }
 
-  updateRuntimeQueue();
 }, 1000);
-
-updateRuntimeQueue();
 
 app.get("/api/videos", (_request, response) => {
   response.json(availableAssets);
@@ -232,8 +195,12 @@ app.get("/api/queue", (_request, response) => {
 });
 
 app.post("/api/videos/upload", (request, response) => {
-  const { title = "", category = "", durationSeconds, videoUrl = "" } =
-    request.body as UploadVideoRequestBody;
+  const {
+    title = "",
+    category = "",
+    durationSeconds,
+    videoUrl = "",
+  } = request.body as UploadVideoRequestBody;
   const safeDurationSeconds = Number(durationSeconds);
 
   const normalizedTitle = title.trim();
@@ -256,8 +223,7 @@ app.post("/api/videos/upload", (request, response) => {
 
   if (!sourceAsset) {
     response.status(400).json({
-      message:
-        "Invalid videoUrl. Choose one of the staged local video files.",
+      message: "Invalid videoUrl. Choose one of the staged local video files.",
     });
     return;
   }
