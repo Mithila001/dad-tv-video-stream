@@ -125,7 +125,9 @@ export function UploadVideoModal({
             Duration (seconds)
             <input
               value={durationSeconds}
-              onChange={(event) => setDurationSeconds(Number(event.target.value))}
+              onChange={(event) =>
+                setDurationSeconds(Number(event.target.value))
+              }
               type="number"
               min={1}
               step={1}
@@ -140,7 +142,8 @@ export function UploadVideoModal({
               value={videoUrl}
               onChange={(event) =>
                 setVideoUrl(
-                  event.target.value as (typeof stagedVideoChoices)[number]["value"],
+                  event.target
+                    .value as (typeof stagedVideoChoices)[number]["value"],
                 )
               }
               className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"

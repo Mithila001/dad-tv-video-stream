@@ -100,7 +100,9 @@ export function MediaLibraryView() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => window.dispatchEvent(new Event("lobbystream:open-upload"))}
+              onClick={() =>
+                window.dispatchEvent(new Event("lobbystream:open-upload"))
+              }
               className="inline-flex items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
             >
               Upload Video

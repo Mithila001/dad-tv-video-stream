@@ -1,0 +1,17 @@
+#cloud-config
+package_update: true
+packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+
+runcmd:
+  - [ bash, -lc, 'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg' ]
+  - [ bash, -lc, 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list' ]
+  - [ bash, -lc, 'apt-get update' ]
+  - [ bash, -lc, 'apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin' ]
+  - [ bash, -lc, 'git clone --depth 1 https://github.com/Mithila001/dad-tv-video-stream.git /opt/dad-tv-video-stream' ]
+  - [ bash, -lc, 'cd /opt/dad-tv-video-stream && docker compose build --pull' ]
+  - [ bash, -lc, 'cd /opt/dad-tv-video-stream && docker compose up -d' ]
