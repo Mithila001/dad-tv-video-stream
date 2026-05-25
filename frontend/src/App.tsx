@@ -1,10 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { StreamSocketProvider } from "./context/StreamSocketContext";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { MediaLibraryView } from "./pages/MediaLibraryView";
 import { PlaylistsView } from "./pages/PlaylistsView";
+import { SettingsView } from "./pages/SettingsView";
 import { TvDisplay } from "./pages/TvDisplay";
 
 function App() {
@@ -36,7 +38,9 @@ function AppRouter() {
       <Route
         element={
           currentUser?.role === "Network Operator" ? (
-            <AppShell />
+            <StreamSocketProvider>
+              <AppShell />
+            </StreamSocketProvider>
           ) : currentUser?.role === "Viewer" ? (
             <Navigate to="/tv" replace />
           ) : (
@@ -48,6 +52,7 @@ function AppRouter() {
         <Route path="library" element={<MediaLibraryView />} />
         <Route path="playlists" element={<PlaylistsView />} />
         <Route path="live" element={<Dashboard />} />
+        <Route path="settings" element={<SettingsView />} />
       </Route>
       <Route
         path="/tv"

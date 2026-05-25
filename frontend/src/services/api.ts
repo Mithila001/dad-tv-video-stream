@@ -39,6 +39,15 @@ export interface StreamSyncResponse {
 
 export type StreamControlCommand = "play" | "pause" | "next" | "previous";
 
+export type WebSocketClientKind = "tv" | "admin" | "unknown";
+
+export function getWebSocketUrl(pathname = "/ws", clientKind: WebSocketClientKind = "unknown") {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const url = new URL(`${protocol}//${window.location.host}${pathname}`);
+  url.searchParams.set("client", clientKind);
+  return url.toString();
+}
+
 export interface UploadVideoPayload {
   readonly file: File;
   readonly title: string;

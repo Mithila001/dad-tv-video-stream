@@ -4,88 +4,18 @@ import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
 import logoText from "../assets/dad-video-logo-text.png";
-import {
-  type LiveQueueItem,
-  type VideoAsset,
-  fetchLiveQueue,
-  fetchStreamSync,
-  fetchVideoLibrary,
-  type StreamSyncResponse,
-} from "../services/api";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface DashboardProps {
   readonly className?: string;
 }
 
 export function Dashboard({ className }: DashboardProps) {
-  const [videoLibrary, setVideoLibrary] = useState<ReadonlyArray<VideoAsset>>(
-    [],
-  );
-  const [liveQueue, setLiveQueue] = useState<ReadonlyArray<LiveQueueItem>>([]);
-  const [streamSync, setStreamSync] = useState<StreamSyncResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { assets: videoLibrary, liveQueue, stream: streamSync, connectionState, lastEvent } =
+    useSharedStreamSocket();
+  const [displayStreamSeconds, setDisplayStreamSeconds] = useState(0);
 
-  useEffect(() => {
-    let isActive = true;
-    let queuePollTimerId: number | null = null;
-
-    async function loadDashboardData() {
-      setIsLoading(true);
-
-      const [videos, queue] = await Promise.all([
-        fetchVideoLibrary(),
-        fetchLiveQueue(),
-      ]);
-
-      if (!isActive) {
-        return;
-      }
-
-      setVideoLibrary(videos);
-      setLiveQueue(queue);
-      setIsLoading(false);
-    }
-
-    async function refreshRealtimeStreamData() {
-      const [stream, queue] = await Promise.all([
-        fetchStreamSync().catch(() => null),
-        fetchLiveQueue(),
-      ]);
-
-      if (!isActive) {
-        return;
-      }
-
-      setStreamSync(stream);
-      setLiveQueue(queue);
-    }
-
-    void loadDashboardData();
-    queueMicrotask(() => {
-      void refreshRealtimeStreamData();
-    });
-
-    const handleDataUpdated = () => {
-      void loadDashboardData();
-      void refreshRealtimeStreamData();
-    };
-
-    window.addEventListener("lobbystream:data-updated", handleDataUpdated);
-
-    queuePollTimerId = window.setInterval(() => {
-      void refreshRealtimeStreamData();
-    }, 4000);
-
-    return () => {
-      isActive = false;
-      if (queuePollTimerId) {
-        window.clearInterval(queuePollTimerId);
-      }
-      window.removeEventListener("lobbystream:data-updated", handleDataUpdated);
-    };
-  }, []);
-
-  const featuredVideo = useMemo(() => {
+  const activeVideo = useMemo(() => {
     if (streamSync) {
       return (
         videoLibrary.find((video) => video.id === streamSync.videoId) ??
@@ -96,6 +26,29 @@ export function Dashboard({ className }: DashboardProps) {
 
     return videoLibrary[0] ?? null;
   }, [streamSync, videoLibrary]);
+
+  useEffect(() => {
+    if (!streamSync) {
+      setDisplayStreamSeconds(0);
+      return;
+    }
+
+    setDisplayStreamSeconds(streamSync.currentTime);
+
+    if (!streamSync.isPlaying) {
+      return;
+    }
+
+    const ticker = window.setInterval(() => {
+      setDisplayStreamSeconds((previous) =>
+        Math.min(streamSync.durationSeconds, previous + 1),
+      );
+    }, 1000);
+
+    return () => {
+      window.clearInterval(ticker);
+    };
+  }, [streamSync]);
 
   const playbackLabel = streamSync?.isPlaying ? "Playing now" : "Paused";
 
@@ -118,21 +71,24 @@ export function Dashboard({ className }: DashboardProps) {
             Monitor the LobbyStream media pipeline, keep the live queue in
             order, and move assets through the admin workflow from one place.
           </p>
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+            Streaming Status: {connectionState === "connected" ? "Live" : connectionState} • {lastEvent}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
-            Broadcast Status
+            Streaming Performance Panel
           </p>
           <div className="mt-3 space-y-3">
-            <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-2/70 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 overflow-hidden rounded-xl bg-surface-2/70 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-text">
-                  {featuredVideo?.title ?? "No active stream"}
+                  {activeVideo?.title ?? "No active stream"}
                 </p>
                 <p className="text-sm text-text-muted">
                   {streamSync
-                    ? `Sync ${playbackLabel} • ${Math.floor(streamSync.currentTime / 60)}m ${streamSync.currentTime % 60}s`
+                    ? `Sync ${playbackLabel} • ${Math.floor(displayStreamSeconds / 60)}m ${Math.floor(displayStreamSeconds % 60)}s`
                     : "Waiting for stream sync"}
                 </p>
               </div>
@@ -144,8 +100,8 @@ export function Dashboard({ className }: DashboardProps) {
             <div className="rounded-xl border border-border/70 bg-bg/70 px-4 py-3">
               <p className="text-sm font-semibold text-text">Live queue</p>
               <p className="mt-1 text-sm text-text-muted">
-                {liveQueue.length} items fetched from the backend, ready for
-                sequencing.
+                {liveQueue.length} live items from the WebSocket snapshot,
+                ready for sequencing.
               </p>
             </div>
           </div>
@@ -168,8 +124,8 @@ export function Dashboard({ className }: DashboardProps) {
         />
         <StatCard
           label="Latest upload"
-          value={featuredVideo?.uploadDate ?? "N/A"}
-          description={featuredVideo?.title ?? "No media found"}
+          value={activeVideo?.uploadDate ?? "N/A"}
+          description={activeVideo?.title ?? "No media found"}
           icon={Clock3}
         />
       </section>
@@ -182,26 +138,24 @@ export function Dashboard({ className }: DashboardProps) {
                 Featured Asset
               </p>
               <h2 className="mt-1 text-xl font-semibold text-text">
-                {isLoading ? "Loading dashboard data..." : featuredVideo?.title}
+                {activeVideo?.title ?? "No active stream"}
               </h2>
             </div>
             <span className="rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent-strong ring-1 ring-accent/25">
-              {featuredVideo?.format ?? "--"}
+              {activeVideo?.format ?? "--"}
             </span>
           </div>
 
           <div className="mt-5 overflow-hidden rounded-2xl border border-border/70 bg-bg">
-            {featuredVideo ? (
+            {activeVideo ? (
               <img
-                src={featuredVideo.thumbnailUrl}
-                alt={featuredVideo.title}
+                src={activeVideo.thumbnailUrl}
+                alt={activeVideo.title}
                 className="h-56 w-full object-cover md:h-72"
               />
             ) : (
               <div className="flex h-56 w-full items-center justify-center text-sm text-text-muted md:h-72">
-                {isLoading
-                  ? "Loading preview..."
-                  : "No featured video available"}
+                No featured video available
               </div>
             )}
           </div>
@@ -212,21 +166,19 @@ export function Dashboard({ className }: DashboardProps) {
                 Duration
               </dt>
               <dd className="mt-1 text-text">
-                {featuredVideo?.duration ?? "—"}
+                {activeVideo?.duration ?? "—"}
               </dd>
             </div>
             <div className="rounded-xl bg-surface-2/60 px-4 py-3">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
                 Size
               </dt>
-              <dd className="mt-1 text-text">{featuredVideo?.size ?? "—"}</dd>
+              <dd className="mt-1 text-text">{activeVideo?.size ?? "—"}</dd>
             </div>
           </dl>
         </article>
 
         <LiveQueuePanel
-          items={liveQueue}
-          playlist={videoLibrary}
           streamVariant="console"
           className="p-5"
         />

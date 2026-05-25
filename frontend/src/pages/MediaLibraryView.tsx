@@ -1,46 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Grid2X2, List, Search, SlidersHorizontal } from "lucide-react";
-import { fetchVideoLibrary, type VideoAsset } from "../services/api";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 type ViewMode = "grid" | "list";
 type SortMode = "newest" | "oldest" | "title";
 
 export function MediaLibraryView() {
-  const [videos, setVideos] = useState<ReadonlyArray<VideoAsset>>([]);
+  const { assets: videos, connectionState } = useSharedStreamSocket();
   const [search, setSearch] = useState("");
   const [format, setFormat] = useState<"all" | "MP4" | "MOV">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadVideos() {
-      setIsLoading(true);
-      const data = await fetchVideoLibrary();
-
-      if (!isActive) {
-        return;
-      }
-
-      setVideos(data);
-      setIsLoading(false);
-    }
-
-    void loadVideos();
-
-    const handleDataUpdated = () => {
-      void loadVideos();
-    };
-
-    window.addEventListener("lobbystream:data-updated", handleDataUpdated);
-
-    return () => {
-      isActive = false;
-      window.removeEventListener("lobbystream:data-updated", handleDataUpdated);
-    };
-  }, []);
+  const isLoading = videos.length === 0 && connectionState === "connecting";
 
   const filteredVideos = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -79,9 +51,9 @@ export function MediaLibraryView() {
   }, [format, search, sortMode, videos]);
 
   return (
-    <section className="space-y-6">
-      <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+    <section className="space-y-6 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
+        <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
               Media Library
@@ -96,7 +68,7 @@ export function MediaLibraryView() {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 xl:justify-end">
             <button
               type="button"
               onClick={() =>
@@ -135,8 +107,8 @@ export function MediaLibraryView() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_180px_180px]">
-          <label className="relative w-full">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[minmax(0,1.4fr)_180px_180px]">
+          <label className="relative w-full sm:col-span-2 md:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <input
               type="search"
@@ -175,12 +147,14 @@ export function MediaLibraryView() {
       </div>
 
       <div className="flex items-center justify-between px-1 text-sm text-text-muted">
-        <span>
+        <span className="min-w-0 truncate">
           {isLoading
             ? "Loading assets..."
             : `${filteredVideos.length} assets available`}
         </span>
-        <span>Backend source: /api/videos</span>
+        <span className="shrink-0 rounded-full border border-border/70 bg-surface-2/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+          Backend source: /api/videos
+        </span>
       </div>
 
       <div
@@ -194,7 +168,7 @@ export function MediaLibraryView() {
           <article
             key={video.id}
             className={[
-              "rounded-2xl border border-border bg-surface/90 shadow-panel",
+              "overflow-hidden rounded-2xl border border-border bg-surface/90 shadow-panel",
               viewMode === "grid"
                 ? "overflow-hidden"
                 : "overflow-hidden xl:flex xl:items-stretch",
@@ -209,13 +183,13 @@ export function MediaLibraryView() {
                   : "h-44 w-full object-cover xl:h-auto xl:w-72"
               }
             />
-            <div className="space-y-4 p-5">
+            <div className="min-w-0 space-y-4 p-5">
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold text-text">
+                <div className="min-w-0">
+                  <h2 className="truncate text-lg font-semibold text-text">
                     {video.title}
                   </h2>
-                  <p className="mt-1 text-sm text-text-muted">
+                  <p className="mt-1 truncate text-sm text-text-muted">
                     {video.duration} • {video.size} • {video.format}
                   </p>
                 </div>
@@ -225,19 +199,19 @@ export function MediaLibraryView() {
               </div>
 
               <dl className="grid gap-2 text-sm text-text-muted sm:grid-cols-2">
-                <div className="rounded-xl bg-surface-2/60 px-3 py-2">
+                <div className="overflow-hidden rounded-xl bg-surface-2/60 px-3 py-2">
                   <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
                     Format
                   </dt>
                   <dd className="mt-1 text-text">{video.format}</dd>
                 </div>
-                <div className="rounded-xl bg-surface-2/60 px-3 py-2">
+                <div className="overflow-hidden rounded-xl bg-surface-2/60 px-3 py-2">
                   <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
                     Category
                   </dt>
-                  <dd className="mt-1 text-text">{video.category}</dd>
+                  <dd className="mt-1 truncate text-text">{video.category}</dd>
                 </div>
-                <div className="rounded-xl bg-surface-2/60 px-3 py-2">
+                <div className="overflow-hidden rounded-xl bg-surface-2/60 px-3 py-2 sm:col-span-2">
                   <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
                     Source
                   </dt>

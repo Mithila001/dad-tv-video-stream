@@ -10,11 +10,11 @@ import {
 } from "lucide-react";
 import type { VideoAsset } from "../services/api";
 import {
-  fetchStreamSync,
   sendStreamControl,
   type StreamControlCommand,
   type StreamSyncResponse,
 } from "../services/api";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface StreamNowPanelProps {
   readonly playlist: ReadonlyArray<VideoAsset>;
@@ -34,20 +34,26 @@ export function StreamNowPanel({
   className,
   variant = "player",
 }: StreamNowPanelProps) {
+  const { assets, stream, connectionState, lastEvent } =
+    useSharedStreamSocket();
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
   const [syncTargetTime, setSyncTargetTime] = useState(0);
+  const [displayTime, setDisplayTime] = useState(0);
   const [durationSeconds, setDurationSeconds] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [hasConnectedAudio, setHasConnectedAudio] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const syncPollTimerRef = useRef<number | null>(null);
 
   const currentVideo = useMemo(
-    () => playlist.find((video) => video.id === currentVideoId) ?? playlist[0],
-    [currentVideoId, playlist],
+    () =>
+      playlist.find((video) => video.id === currentVideoId) ??
+      assets.find((video) => video.id === currentVideoId) ??
+      playlist[0] ??
+      assets[0],
+    [assets, currentVideoId, playlist],
   );
 
   const videoSource = useMemo(
@@ -59,18 +65,10 @@ export function StreamNowPanel({
     setCurrentVideoId(syncState.videoId);
     setFallbackVideoUrl(syncState.videoUrl);
     setSyncTargetTime(syncState.currentTime);
+    setDisplayTime(syncState.currentTime);
     setDurationSeconds(Math.max(1, syncState.durationSeconds));
     setIsPlaying(syncState.isPlaying);
   }, []);
-
-  const syncFromServer = useCallback(async () => {
-    try {
-      const syncState = await fetchStreamSync();
-      applySyncState(syncState);
-    } catch {
-      // Keep local playback running until sync endpoint responds again.
-    }
-  }, [applySyncState]);
 
   const runControlCommand = useCallback(
     (command: StreamControlCommand) => {
@@ -84,33 +82,10 @@ export function StreamNowPanel({
   );
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void syncFromServer();
-    });
-
-    syncPollTimerRef.current = window.setInterval(() => {
-      void syncFromServer();
-    }, 4000);
-
-    const handleVisibilityOrFocus = () => {
-      void syncFromServer();
-      if (variant === "player") {
-        void videoRef.current?.play().catch(() => undefined);
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
-    window.addEventListener("focus", handleVisibilityOrFocus);
-
-    return () => {
-      if (syncPollTimerRef.current) {
-        window.clearInterval(syncPollTimerRef.current);
-      }
-
-      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
-      window.removeEventListener("focus", handleVisibilityOrFocus);
-    };
-  }, [syncFromServer, variant]);
+    if (stream) {
+      applySyncState(stream);
+    }
+  }, [applySyncState, stream]);
 
   useEffect(() => {
     if (variant !== "player") {
@@ -181,6 +156,23 @@ export function StreamNowPanel({
       videoElement.currentTime = syncTargetTime;
     }
   }, [syncTargetTime, variant]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setDisplayTime(syncTargetTime);
+      return;
+    }
+
+    setDisplayTime(syncTargetTime);
+
+    const ticker = window.setInterval(() => {
+      setDisplayTime((previous) => Math.min(durationSeconds, previous + 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(ticker);
+    };
+  }, [durationSeconds, isPlaying, syncTargetTime]);
 
   useEffect(() => {
     if (variant !== "player") {
@@ -269,7 +261,7 @@ export function StreamNowPanel({
 
   const progressPercent = Math.min(
     100,
-    (syncTargetTime / durationSeconds) * 100,
+    (displayTime / durationSeconds) * 100,
   );
 
   const controlButtons = (
@@ -340,6 +332,9 @@ export function StreamNowPanel({
           <h3 className="mt-1 text-lg font-semibold text-text">
             {currentVideo?.title ?? "No active stream"}
           </h3>
+            <p className="mt-1 text-xs text-text-muted">
+              {connectionState} • {lastEvent}
+            </p>
         </div>
 
         <div className="space-y-5 p-5">
@@ -347,7 +342,7 @@ export function StreamNowPanel({
             <div className="mb-3 flex items-center justify-between text-sm font-medium text-text-muted">
               <span>Playback timeline</span>
               <span>
-                {formatClock(syncTargetTime)} / {formatClock(durationSeconds)}
+                {formatClock(displayTime)} / {formatClock(durationSeconds)}
               </span>
             </div>
             <div className="h-3 overflow-hidden rounded-full bg-surface-2">
@@ -366,7 +361,7 @@ export function StreamNowPanel({
               Source: {currentVideo?.format ?? "LIVE"}
             </div>
             <div className="rounded-xl bg-surface-2/60 px-3 py-2">
-              Runtime: {formatClock(syncTargetTime)}
+              Runtime: {formatClock(displayTime)}
             </div>
           </div>
 
