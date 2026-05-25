@@ -67,6 +67,7 @@ type WebSocketEvent =
       readonly type: "INITIAL_STATE";
       readonly stream: StreamSyncResponse | null;
       readonly assets: ReadonlyArray<VideoAsset>;
+      readonly liveQueue: ReadonlyArray<LiveQueueItem>;
     }
   | {
       readonly type: "STREAM_SYNC";
@@ -80,6 +81,11 @@ type WebSocketEvent =
   | {
       readonly type: "HEARTBEAT";
       readonly serverTime: number;
+    }
+  | {
+      readonly type: "QUEUE_UPDATE";
+      readonly liveQueue: ReadonlyArray<LiveQueueItem>;
+      readonly stream: StreamSyncResponse | null;
     };
 
 const authUsers: ReadonlyArray<
@@ -157,6 +163,17 @@ function persistVideoLibrary(library: ReadonlyArray<VideoAsset>) {
 
 let availableAssets: VideoAsset[] = loadVideoLibrary();
 const tvSockets = new Set<WebSocket>();
+const adminSockets = new Set<WebSocket>();
+
+interface QueueItem {
+  readonly queueItemId: string;
+  readonly asset: VideoAsset;
+}
+
+let liveQueue: QueueItem[] = availableAssets.map((asset, index) => ({
+  queueItemId: `queue-init-${index}-${asset.id}`,
+  asset,
+}));
 
 app.use(cors());
 app.use(express.json());
@@ -171,8 +188,11 @@ function safeSend(socket: WebSocket, payload: WebSocketEvent) {
   socket.send(JSON.stringify(payload));
 }
 
-function broadcastToTvClients(payload: WebSocketEvent) {
+function broadcastToAllClients(payload: WebSocketEvent) {
   for (const socket of tvSockets) {
+    safeSend(socket, payload);
+  }
+  for (const socket of adminSockets) {
     safeSend(socket, payload);
   }
 }
@@ -224,25 +244,25 @@ interface StreamRuntimeState {
 const streamState: StreamRuntimeState = {
   currentIndex: 0,
   startedAtMs: Date.now(),
-  durationSeconds: durationToSeconds(availableAssets[0]?.duration ?? "0:00"),
+  durationSeconds: durationToSeconds(liveQueue[0]?.asset.duration ?? "0:00"),
   currentTimeSeconds: 0,
   isPlaying: true,
 };
 
 function syncStreamStateToPlaylist() {
-  if (availableAssets.length === 0) {
+  if (liveQueue.length === 0) {
     streamState.currentIndex = 0;
     streamState.durationSeconds = 0;
     streamState.currentTimeSeconds = 0;
     return;
   }
 
-  if (streamState.currentIndex >= availableAssets.length) {
+  if (streamState.currentIndex >= liveQueue.length) {
     streamState.currentIndex = 0;
   }
 
   streamState.durationSeconds = durationToSeconds(
-    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
+    liveQueue[streamState.currentIndex]?.asset.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = Math.min(
     streamState.currentTimeSeconds,
@@ -253,49 +273,50 @@ function syncStreamStateToPlaylist() {
 syncStreamStateToPlaylist();
 
 function buildLiveQueue(): LiveQueueItem[] {
-  return availableAssets.map((video, index) => ({
-    id: `live-${video.id}`,
-    title: video.title,
-    thumbnailUrl: video.thumbnailUrl,
+  return liveQueue.map((item, index) => ({
+    id: item.queueItemId,
+    title: item.asset.title,
+    thumbnailUrl: item.asset.thumbnailUrl,
     status: index === streamState.currentIndex ? "playing" : "upcoming",
     startsInMinutes:
       index === streamState.currentIndex
         ? undefined
         : Math.max(0, (index - streamState.currentIndex) * 12),
-    sourceVideoId: video.id,
+    sourceVideoId: item.asset.id,
   }));
 }
 
 function getActiveVideo() {
-  return availableAssets[streamState.currentIndex] ?? null;
+  return liveQueue[streamState.currentIndex]?.asset ?? null;
 }
 
 function advanceStreamToNextVideo() {
-  if (availableAssets.length === 0) {
+  if (liveQueue.length === 0) {
     return;
   }
 
   streamState.currentIndex =
-    (streamState.currentIndex + 1) % availableAssets.length;
+    (streamState.currentIndex + 1) % liveQueue.length;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
-    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
+    liveQueue[streamState.currentIndex]?.asset.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
+  broadcastStreamSync("next");
 }
 
 function moveStreamByOffset(offset: number) {
-  if (availableAssets.length === 0) {
+  if (liveQueue.length === 0) {
     return;
   }
 
   const nextIndex =
-    (streamState.currentIndex + offset + availableAssets.length) %
-    availableAssets.length;
+    (streamState.currentIndex + offset + liveQueue.length) %
+    liveQueue.length;
   streamState.currentIndex = nextIndex;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
-    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
+    liveQueue[streamState.currentIndex]?.asset.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
 }
@@ -325,7 +346,7 @@ function broadcastStreamSync(command: StreamControlCommand) {
     return;
   }
 
-  broadcastToTvClients({
+  broadcastToAllClients({
     type: "STREAM_SYNC",
     command,
     stream: syncPayload,
@@ -333,7 +354,7 @@ function broadcastStreamSync(command: StreamControlCommand) {
 }
 
 setInterval(() => {
-  if (availableAssets.length === 0 || streamState.durationSeconds <= 0) {
+  if (liveQueue.length === 0 || streamState.durationSeconds <= 0) {
     return;
   }
 
@@ -424,10 +445,24 @@ app.post(
 
       availableAssets.push(newAsset);
       persistVideoLibrary(availableAssets);
+      
+      const newQueueItem: QueueItem = {
+        queueItemId: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        asset: newAsset,
+      };
+      liveQueue.push(newQueueItem);
+      
       syncStreamStateToPlaylist();
-      broadcastToTvClients({
+      
+      broadcastToAllClients({
         type: "ASSET_ADDED",
         asset: newAsset,
+      });
+      
+      broadcastToAllClients({
+        type: "QUEUE_UPDATE",
+        liveQueue: buildLiveQueue(),
+        stream: buildSyncPayload(),
       });
 
       response.status(201).json({ video: newAsset });
@@ -442,6 +477,209 @@ app.post(
     }
   },
 );
+
+app.post("/api/queue/reorder", (request, response) => {
+  const { orderedIds } = request.body as { orderedIds?: string[] };
+  if (!Array.isArray(orderedIds)) {
+    response.status(400).json({ message: "Invalid payload: orderedIds must be an array" });
+    return;
+  }
+
+  const playingItem = liveQueue[streamState.currentIndex];
+  const itemMap = new Map(liveQueue.map((item) => [item.queueItemId, item]));
+
+  const newQueue: QueueItem[] = [];
+  for (const id of orderedIds) {
+    const item = itemMap.get(id);
+    if (item) {
+      newQueue.push(item);
+    }
+  }
+
+  // Add any items that were not included in orderedIds
+  for (const item of liveQueue) {
+    if (!newQueue.some((q) => q.queueItemId === item.queueItemId)) {
+      newQueue.push(item);
+    }
+  }
+
+  // Ensure the currently playing item stays locked at the playing index
+  if (playingItem) {
+    const playingIndexInNew = newQueue.findIndex((q) => q.queueItemId === playingItem.queueItemId);
+    if (playingIndexInNew !== -1 && playingIndexInNew !== streamState.currentIndex) {
+      newQueue.splice(playingIndexInNew, 1);
+      newQueue.splice(streamState.currentIndex, 0, playingItem);
+    }
+  }
+
+  liveQueue = newQueue;
+
+  const syncPayload = buildSyncPayload();
+  broadcastToAllClients({
+    type: "QUEUE_UPDATE",
+    liveQueue: buildLiveQueue(),
+    stream: syncPayload,
+  });
+
+  response.json({ success: true, queue: buildLiveQueue() });
+});
+
+app.post("/api/queue/delete", (request, response) => {
+  const { itemId } = request.body as { itemId?: string };
+  if (!itemId) {
+    response.status(400).json({ message: "Invalid payload: itemId is required" });
+    return;
+  }
+
+  const itemIndex = liveQueue.findIndex((item) => item.queueItemId === itemId);
+  if (itemIndex === -1) {
+    response.status(404).json({ message: "Queue item not found" });
+    return;
+  }
+
+  if (itemIndex === streamState.currentIndex) {
+    response.status(400).json({ message: "Cannot delete the currently playing item" });
+    return;
+  }
+
+  liveQueue.splice(itemIndex, 1);
+
+  if (itemIndex < streamState.currentIndex) {
+    streamState.currentIndex = Math.max(0, streamState.currentIndex - 1);
+  }
+
+  const syncPayload = buildSyncPayload();
+  broadcastToAllClients({
+    type: "QUEUE_UPDATE",
+    liveQueue: buildLiveQueue(),
+    stream: syncPayload,
+  });
+
+  response.json({ success: true, queue: buildLiveQueue() });
+});
+
+app.post("/api/queue/append-playlist", (request, response) => {
+  const { assetIds } = request.body as { assetIds?: string[] };
+  if (!Array.isArray(assetIds)) {
+    response.status(400).json({ message: "Invalid payload: assetIds must be an array" });
+    return;
+  }
+
+  const addedItems: QueueItem[] = [];
+  for (const id of assetIds) {
+    const asset = availableAssets.find((a) => a.id === id);
+    if (asset) {
+      addedItems.push({
+        queueItemId: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        asset,
+      });
+    }
+  }
+
+  liveQueue.push(...addedItems);
+
+  // If the queue was empty, make sure we sync playback duration & current index
+  if (liveQueue.length === addedItems.length) {
+    streamState.currentIndex = 0;
+    streamState.startedAtMs = Date.now();
+    streamState.durationSeconds = durationToSeconds(liveQueue[0].asset.duration);
+    streamState.currentTimeSeconds = 0;
+  }
+
+  const syncPayload = buildSyncPayload();
+  broadcastToAllClients({
+    type: "QUEUE_UPDATE",
+    liveQueue: buildLiveQueue(),
+    stream: syncPayload,
+  });
+
+  response.json({ success: true, queue: buildLiveQueue() });
+});
+
+app.post("/api/queue/play-playlist", (request, response) => {
+  const { assetIds } = request.body as { assetIds?: string[] };
+  if (!Array.isArray(assetIds) || assetIds.length === 0) {
+    response.status(400).json({ message: "Invalid payload: assetIds must be a non-empty array" });
+    return;
+  }
+
+  const newQueue: QueueItem[] = [];
+  for (const id of assetIds) {
+    const asset = availableAssets.find((a) => a.id === id);
+    if (asset) {
+      newQueue.push({
+        queueItemId: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        asset,
+      });
+    }
+  }
+
+  if (newQueue.length === 0) {
+    response.status(400).json({ message: "No valid assets found to play" });
+    return;
+  }
+
+  liveQueue = newQueue;
+  streamState.currentIndex = 0;
+  streamState.startedAtMs = Date.now();
+  streamState.durationSeconds = durationToSeconds(liveQueue[0].asset.duration);
+  streamState.currentTimeSeconds = 0;
+  streamState.isPlaying = true;
+
+  const syncPayload = buildSyncPayload();
+  broadcastToAllClients({
+    type: "QUEUE_UPDATE",
+    liveQueue: buildLiveQueue(),
+    stream: syncPayload,
+  });
+
+  if (syncPayload) {
+    broadcastToAllClients({
+      type: "STREAM_SYNC",
+      command: "play",
+      stream: syncPayload,
+    });
+  }
+
+  response.json({ success: true, queue: buildLiveQueue(), stream: syncPayload });
+});
+
+app.post("/api/queue/jump", (request, response) => {
+  const { itemId } = request.body as { itemId?: string };
+  if (!itemId) {
+    response.status(400).json({ message: "Invalid payload: itemId is required" });
+    return;
+  }
+
+  const itemIndex = liveQueue.findIndex((item) => item.queueItemId === itemId);
+  if (itemIndex === -1) {
+    response.status(404).json({ message: "Queue item not found" });
+    return;
+  }
+
+  streamState.currentIndex = itemIndex;
+  streamState.startedAtMs = Date.now();
+  streamState.durationSeconds = durationToSeconds(liveQueue[itemIndex].asset.duration);
+  streamState.currentTimeSeconds = 0;
+  streamState.isPlaying = true;
+
+  const syncPayload = buildSyncPayload();
+  broadcastToAllClients({
+    type: "QUEUE_UPDATE",
+    liveQueue: buildLiveQueue(),
+    stream: syncPayload,
+  });
+
+  if (syncPayload) {
+    broadcastToAllClients({
+      type: "STREAM_SYNC",
+      command: "play",
+      stream: syncPayload,
+    });
+  }
+
+  response.json({ success: true, queue: buildLiveQueue(), stream: syncPayload });
+});
 
 app.get("/api/stream/sync", (_request, response) => {
   const syncPayload = buildSyncPayload();
@@ -551,6 +789,8 @@ wsServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
 
   if (clientKind === "tv") {
     tvSockets.add(socket);
+  } else if (clientKind === "admin") {
+    adminSockets.add(socket);
   }
 
   safeSend(socket, {
@@ -562,6 +802,7 @@ wsServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
     type: "INITIAL_STATE",
     stream: buildSyncPayload(),
     assets: availableAssets,
+    liveQueue: buildLiveQueue(),
   });
 
   socket.on("message", (data: RawData) => {
@@ -570,11 +811,12 @@ wsServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
         readonly type?: string;
       };
 
-      if (parsed.type === "CLIENT_READY" && clientKind === "tv") {
+      if (parsed.type === "CLIENT_READY") {
         safeSend(socket, {
           type: "INITIAL_STATE",
           stream: buildSyncPayload(),
           assets: availableAssets,
+          liveQueue: buildLiveQueue(),
         });
       }
     } catch {
@@ -584,17 +826,31 @@ wsServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
 
   socket.on("close", () => {
     tvSockets.delete(socket);
+    adminSockets.delete(socket);
   });
 });
 
 wsServer.on("close", () => {
   tvSockets.clear();
+  adminSockets.clear();
 });
 
 const heartbeatTimer = setInterval(() => {
   for (const socket of tvSockets) {
     if (socket.readyState !== WebSocket.OPEN) {
       tvSockets.delete(socket);
+      continue;
+    }
+
+    safeSend(socket, {
+      type: "HEARTBEAT",
+      serverTime: Date.now(),
+    });
+  }
+
+  for (const socket of adminSockets) {
+    if (socket.readyState !== WebSocket.OPEN) {
+      adminSockets.delete(socket);
       continue;
     }
 

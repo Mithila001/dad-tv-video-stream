@@ -52,6 +52,25 @@ function buildStreamQueue(assets: ReadonlyArray<VideoAsset>, stream: StreamSyncR
   );
 }
 
+function updateActiveItemInQueue(
+  queue: ReadonlyArray<LiveQueueItem>,
+  stream: StreamSyncResponse | null,
+): ReadonlyArray<LiveQueueItem> {
+  if (!stream) {
+    return queue;
+  }
+  const activeIndex = queue.findIndex((item) => item.sourceVideoId === stream.videoId);
+  if (activeIndex === -1) {
+    return queue;
+  }
+  return queue.map((item, index) => ({
+    ...item,
+    status: (index === activeIndex ? "playing" : "upcoming") as LiveQueueItem["status"],
+    startsInMinutes:
+      index === activeIndex ? undefined : Math.max(0, (index - activeIndex) * 12),
+  }));
+}
+
 export function useStreamSocket(clientKind: WebSocketClientKind = "admin") {
   const [snapshot, setSnapshot] = useState<StreamSnapshot>(defaultSnapshot);
   const socketRef = useRef<WebSocket | null>(null);
@@ -100,7 +119,7 @@ export function useStreamSocket(clientKind: WebSocketClientKind = "admin") {
           setSnapshot((current) => ({
             ...current,
             assets: message.assets,
-            liveQueue: buildStreamQueue(message.assets, message.stream),
+            liveQueue: message.liveQueue,
             stream: message.stream,
             lastEvent: "Hydrated initial state",
           }));
@@ -111,7 +130,7 @@ export function useStreamSocket(clientKind: WebSocketClientKind = "admin") {
           setSnapshot((current) => ({
             ...current,
             stream: message.stream,
-            liveQueue: buildStreamQueue(current.assets, message.stream),
+            liveQueue: updateActiveItemInQueue(current.liveQueue, message.stream),
             lastEvent: `STREAM_SYNC ${message.command}`,
           }));
           return;
@@ -126,10 +145,19 @@ export function useStreamSocket(clientKind: WebSocketClientKind = "admin") {
             return {
               ...current,
               assets: nextAssets,
-              liveQueue: buildStreamQueue(nextAssets, current.stream),
               lastEvent: `ASSET_ADDED ${message.asset.title}`,
             };
           });
+        }
+
+        if (message.type === "QUEUE_UPDATE") {
+          setSnapshot((current) => ({
+            ...current,
+            liveQueue: message.liveQueue,
+            stream: message.stream ?? current.stream,
+            lastEvent: "Queue updated",
+          }));
+          return;
         }
       } catch {
         setSnapshot((current) => ({
@@ -226,13 +254,102 @@ export function useStreamSocket(clientKind: WebSocketClientKind = "admin") {
     return (await response.json()) as StreamSyncResponse;
   }, []);
 
+  const reorderQueue = useCallback(async (orderedIds: string[]) => {
+    const response = await fetch(`/api/queue/reorder`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to reorder queue");
+    }
+
+    return (await response.json()) as { queue: ReadonlyArray<LiveQueueItem> };
+  }, []);
+
+  const deleteQueueItem = useCallback(async (itemId: string) => {
+    const response = await fetch(`/api/queue/delete`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to delete queue item");
+    }
+
+    return (await response.json()) as { queue: ReadonlyArray<LiveQueueItem> };
+  }, []);
+
+  const appendPlaylist = useCallback(async (assetIds: string[]) => {
+    const response = await fetch(`/api/queue/append-playlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to append playlist");
+    }
+
+    return (await response.json()) as { queue: ReadonlyArray<LiveQueueItem> };
+  }, []);
+
+  const playPlaylist = useCallback(async (assetIds: string[]) => {
+    const response = await fetch(`/api/queue/play-playlist`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assetIds }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to play playlist");
+    }
+
+    return (await response.json()) as {
+      queue: ReadonlyArray<LiveQueueItem>;
+      stream: StreamSyncResponse;
+    };
+  }, []);
+
+  const jumpToQueueItem = useCallback(async (itemId: string) => {
+    const response = await fetch(`/api/queue/jump`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemId }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to jump to queue item");
+    }
+
+    return (await response.json()) as {
+      queue: ReadonlyArray<LiveQueueItem>;
+      stream: StreamSyncResponse;
+    };
+  }, []);
+
   return useMemo(
     () => ({
       ...snapshot,
       runControlCommand,
+      reorderQueue,
+      deleteQueueItem,
+      appendPlaylist,
+      playPlaylist,
+      jumpToQueueItem,
       setSnapshot,
       socketRef,
     }),
-    [runControlCommand, snapshot],
+    [
+      runControlCommand,
+      reorderQueue,
+      deleteQueueItem,
+      appendPlaylist,
+      playPlaylist,
+      jumpToQueueItem,
+      snapshot,
+    ],
   );
 }

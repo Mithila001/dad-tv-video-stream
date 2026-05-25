@@ -1,46 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Grid2X2, List, Search, SlidersHorizontal } from "lucide-react";
-import { fetchVideoLibrary, type VideoAsset } from "../services/api";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 type ViewMode = "grid" | "list";
 type SortMode = "newest" | "oldest" | "title";
 
 export function MediaLibraryView() {
-  const [videos, setVideos] = useState<ReadonlyArray<VideoAsset>>([]);
+  const { assets: videos, connectionState } = useSharedStreamSocket();
   const [search, setSearch] = useState("");
   const [format, setFormat] = useState<"all" | "MP4" | "MOV">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadVideos() {
-      setIsLoading(true);
-      const data = await fetchVideoLibrary();
-
-      if (!isActive) {
-        return;
-      }
-
-      setVideos(data);
-      setIsLoading(false);
-    }
-
-    void loadVideos();
-
-    const handleDataUpdated = () => {
-      void loadVideos();
-    };
-
-    window.addEventListener("lobbystream:data-updated", handleDataUpdated);
-
-    return () => {
-      isActive = false;
-      window.removeEventListener("lobbystream:data-updated", handleDataUpdated);
-    };
-  }, []);
+  const isLoading = videos.length === 0 && connectionState === "connecting";
 
   const filteredVideos = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -135,8 +107,8 @@ export function MediaLibraryView() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_180px_180px]">
-          <label className="relative w-full">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-[minmax(0,1.4fr)_180px_180px]">
+          <label className="relative w-full sm:col-span-2 md:col-span-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
             <input
               type="search"

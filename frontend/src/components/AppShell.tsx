@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode, useState } from "react";
+import { useEffect, type ReactNode, useState, useMemo } from "react";
 import { Upload } from "lucide-react";
 import { Outlet } from "react-router-dom";
 import {
@@ -10,6 +10,7 @@ import { UploadVideoModal } from "./UploadVideoModal";
 import { TopBar } from "./TopBar";
 import { RoleGate } from "./RoleGate";
 import { defaultUser, useAuth } from "../context/AuthContext";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 import { uploadVideoAsset, type UploadVideoPayload } from "../services/api";
 
 export interface AppShellProps {
@@ -21,6 +22,15 @@ export function AppShell({ children }: AppShellProps) {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { currentUser, login, logout } = useAuth();
+  const { assets } = useSharedStreamSocket();
+
+  const navigation = useMemo(() => {
+    return defaultSidebarNavigation.map((item) =>
+      item.href === "/library"
+        ? { ...item, badge: String(assets.length) }
+        : item
+    );
+  }, [assets]);
 
   useEffect(() => {
     const openUploadModal = () => {
@@ -65,7 +75,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="w-full lg:max-w-[320px] lg:shrink-0">
           <Sidebar
             profile={sidebarProfile}
-            navigation={defaultSidebarNavigation}
+            navigation={navigation}
             className="min-h-0 lg:min-h-screen"
           />
         </div>

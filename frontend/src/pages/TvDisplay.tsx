@@ -416,7 +416,7 @@ export function TvDisplay() {
                     : "Waiting for sync"}
                 </p>
                 <p>
-                  <span className="font-semibold text-white">Stream throughput:</span>{" "}
+                  <span className="font-semibold text-white">Broadcast health:</span>{" "}
                   {connectionState === "connected"
                     ? "Live and stable"
                     : "Reconnecting"}

@@ -1,81 +1,173 @@
-import { useMemo, useState } from "react";
-import { CheckSquare, PlaySquare, Plus, Trash2 } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { PlaySquare, Plus, Trash2, ArrowUp, ArrowDown, Search, CheckSquare, ListPlus } from "lucide-react";
 import type { VideoAsset } from "../services/api";
-import { useStreamSocket } from "../hooks/useStreamSocket";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
-interface PlaylistGroup {
-  readonly title: string;
-  readonly description: string;
-  readonly items: ReadonlyArray<VideoAsset>;
+interface Playlist {
+  readonly id: string;
+  readonly name: string;
+  readonly assetIds: ReadonlyArray<string>;
 }
 
 export function PlaylistsView() {
-  const { assets: videos, liveQueue, connectionState, lastEvent } =
-    useStreamSocket("admin");
+  const { assets: videos, playPlaylist, appendPlaylist } = useSharedStreamSocket();
+  const [playlists, setPlaylists] = useState<ReadonlyArray<Playlist>>([]);
   const [selectedIds, setSelectedIds] = useState<ReadonlyArray<string>>([]);
   const [playlistName, setPlaylistName] = useState("New Playlist");
+  const [search, setSearch] = useState("");
 
-  const playlistGroups = useMemo<ReadonlyArray<PlaylistGroup>>(() => {
-    const groups = new Map<string, VideoAsset[]>();
-
-    for (const video of videos) {
-      const key = video.category || "Uncategorized";
-      const current = groups.get(key) ?? [];
-      current.push(video);
-      groups.set(key, current);
+  // Load playlists from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("lobbystream:playlists");
+      if (stored) {
+        setPlaylists(JSON.parse(stored) as ReadonlyArray<Playlist>);
+      }
+    } catch (error) {
+      console.error("Failed to load playlists from localStorage", error);
     }
+  }, []);
 
-    return [...groups.entries()]
-      .map(([title, items]) => ({
-        title,
-        description: `${items.length} assets grouped from the backend media library.`,
-        items,
-      }))
-      .sort((left, right) => right.items.length - left.items.length);
-  }, [videos]);
+  // Persist playlists to localStorage when changed
+  const savePlaylistsToStorage = (nextPlaylists: ReadonlyArray<Playlist>) => {
+    setPlaylists(nextPlaylists);
+    try {
+      localStorage.setItem("lobbystream:playlists", JSON.stringify(nextPlaylists));
+    } catch (error) {
+      console.error("Failed to save playlists to localStorage", error);
+    }
+  };
 
-  const selectedVideos = useMemo(
-    () => videos.filter((video) => selectedIds.includes(video.id)),
-    [selectedIds, videos],
-  );
+  const filteredVideos = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) {
+      return videos;
+    }
+    return videos.filter((video) =>
+      video.title.toLowerCase().includes(query) ||
+      video.format.toLowerCase().includes(query)
+    );
+  }, [search, videos]);
 
-  const toggleSelected = (videoId: string) => {
+  const selectedVideos = useMemo(() => {
+    // Return selected assets in the order they appear in selectedIds
+    return selectedIds
+      .map((id) => videos.find((v) => v.id === id))
+      .filter((v): v is VideoAsset => Boolean(v));
+  }, [selectedIds, videos]);
+
+  const toggleSelect = (videoId: string) => {
     setSelectedIds((current) =>
       current.includes(videoId)
         ? current.filter((id) => id !== videoId)
-        : [...current, videoId],
+        : [...current, videoId]
     );
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index === 0) {
+      return;
+    }
+    setSelectedIds((current) => {
+      const next = [...current];
+      const temp = next[index];
+      next[index] = next[index - 1];
+      next[index - 1] = temp;
+      return next;
+    });
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === selectedIds.length - 1) {
+      return;
+    }
+    setSelectedIds((current) => {
+      const next = [...current];
+      const temp = next[index];
+      next[index] = next[index + 1];
+      next[index + 1] = temp;
+      return next;
+    });
+  };
+
+  const handleRemoveSelected = (videoId: string) => {
+    setSelectedIds((current) => current.filter((id) => id !== videoId));
+  };
+
+  const handleSavePlaylist = () => {
+    if (selectedIds.length === 0) {
+      return;
+    }
+
+    const newPlaylist: Playlist = {
+      id: `playlist-${Date.now()}`,
+      name: playlistName.trim() || `Playlist #${playlists.length + 1}`,
+      assetIds: [...selectedIds],
+    };
+
+    const nextPlaylists = [...playlists, newPlaylist];
+    savePlaylistsToStorage(nextPlaylists);
+
+    // Reset builder form
+    setSelectedIds([]);
+    setPlaylistName("New Playlist");
+  };
+
+  const handleDeletePlaylist = (playlistId: string) => {
+    const nextPlaylists = playlists.filter((p) => p.id !== playlistId);
+    savePlaylistsToStorage(nextPlaylists);
+  };
+
+  const handlePlayPlaylist = async (playlist: Playlist) => {
+    try {
+      await playPlaylist([...playlist.assetIds]);
+    } catch (error) {
+      console.error("Failed to play playlist", error);
+    }
+  };
+
+  const handleAppendPlaylist = async (playlist: Playlist) => {
+    try {
+      await appendPlaylist([...playlist.assetIds]);
+    } catch (error) {
+      console.error("Failed to append playlist to queue", error);
+    }
+  };
+
+  // Helper to map asset IDs to their VideoAsset models
+  const getPlaylistVideos = (playlist: Playlist) => {
+    return playlist.assetIds
+      .map((id) => videos.find((v) => v.id === id))
+      .filter((v): v is VideoAsset => Boolean(v));
   };
 
   return (
     <section className="space-y-6 overflow-hidden">
+      {/* Header Panel */}
       <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-          Playlists
+          Broadcast playlists
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text">
-          Backend Collections
+          Playlist Orchestrator
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted md:text-base">
-          These collections are generated from the live backend video library.
-          Categories and queue counts are refreshed from the live WebSocket
-          snapshot instead of using placeholder playlist data.
-        </p>
-        <p className="mt-3 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-          Socket {connectionState} • {lastEvent}
+          Create custom groupings of media assets, arrange playback ordering in
+          the builder, and dispatch them to replace or extend the live streaming queue.
         </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <div className="grid gap-4 xl:grid-cols-2">
-          <article className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel xl:col-span-2">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        {/* Playlist Builder Surface */}
+        <div className="space-y-4">
+          <article className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between border-b border-border/60 pb-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
                   Playlist Builder
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-text">
-                  Select assets and prepare a broadcast playlist
+                  Arrange a new media sequence
                 </h2>
               </div>
 
@@ -92,171 +184,260 @@ export function PlaylistsView() {
               </label>
             </div>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong"
-              >
-                <PlaySquare className="h-4 w-4" />
-                Play Playlist
-              </button>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-semibold text-text transition hover:border-accent/50"
-              >
-                <Plus className="h-4 w-4" />
-                Save Draft
-              </button>
-              <button
-                type="button"
-                onClick={() => setSelectedIds([])}
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm font-semibold text-text transition hover:border-accent/50"
-              >
-                <Trash2 className="h-4 w-4" />
-                Clear Selection
-              </button>
-              <span className="rounded-full bg-surface-2 px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
-                {selectedVideos.length} selected
-              </span>
-            </div>
+            <div className="mt-6 grid gap-6 md:grid-cols-2">
+              {/* Asset Selector (Left Column) */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    Asset Library
+                  </p>
+                  <span className="text-xs text-text-muted">{filteredVideos.length} found</span>
+                </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {videos.slice(0, 6).map((video) => {
-                const isSelected = selectedIds.includes(video.id);
+                <label className="relative block">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted" />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search videos by title..."
+                    className="w-full rounded-xl border border-border bg-bg/85 py-2.5 pl-10 pr-4 text-sm text-text outline-none transition focus:border-accent"
+                  />
+                </label>
 
-                return (
-                  <button
-                    key={video.id}
-                    type="button"
-                    onClick={() => toggleSelected(video.id)}
-                    className={[
-                      "overflow-hidden rounded-2xl border p-3 text-left transition",
-                      isSelected
-                        ? "border-accent/40 bg-accent/10 ring-1 ring-accent/25"
-                        : "border-border/70 bg-bg/70 hover:border-accent/35",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={video.thumbnailUrl}
-                        alt={video.title}
-                        className="h-14 w-14 rounded-lg object-cover"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-text">
-                          {video.title}
-                        </p>
-                        <p className="truncate text-sm text-text-muted">
-                          {video.duration} • {video.format}
-                        </p>
-                      </div>
-                      <CheckSquare
+                <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                  {filteredVideos.map((video) => {
+                    const isSelected = selectedIds.includes(video.id);
+
+                    return (
+                      <button
+                        key={video.id}
+                        type="button"
+                        onClick={() => toggleSelect(video.id)}
                         className={[
-                          "h-4 w-4 shrink-0",
-                          isSelected ? "text-accent" : "text-text-muted",
+                          "w-full overflow-hidden rounded-xl border p-2 text-left transition",
+                          isSelected
+                            ? "border-accent/40 bg-accent/10 ring-1 ring-accent/25"
+                            : "border-border/70 bg-bg/70 hover:border-accent/35",
                         ].join(" ")}
-                      />
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={video.thumbnailUrl}
+                            alt={video.title}
+                            className="h-11 w-11 rounded-lg object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-text">
+                              {video.title}
+                            </p>
+                            <p className="truncate text-xs text-text-muted">
+                              {video.duration} • {video.format}
+                            </p>
+                          </div>
+                          <CheckSquare
+                            className={[
+                              "h-4 w-4 shrink-0 transition-colors",
+                              isSelected ? "text-accent" : "text-text-muted/60",
+                            ].join(" ")}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                  {filteredVideos.length === 0 && (
+                    <div className="text-center py-8 text-sm text-text-muted">
+                      No assets match the search.
                     </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Selection & Ordering Preview (Right Column) */}
+              <div className="flex flex-col border-t border-border/60 pt-5 md:border-t-0 md:pt-0 md:border-l md:border-border/60 md:pl-5">
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+                    Playlist Ordering
+                  </p>
+                  <span className="rounded-full bg-accent/15 px-2 py-0.5 text-xs font-semibold text-accent-strong">
+                    {selectedVideos.length} selected
+                  </span>
+                </div>
+
+                <div className="flex-1 max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                  {selectedVideos.map((video, index) => {
+                    const isFirst = index === 0;
+                    const isLast = index === selectedVideos.length - 1;
+
+                    return (
+                      <div
+                        key={`${video.id}-order-${index}`}
+                        className="flex items-center gap-3 rounded-xl border border-border/70 bg-bg/50 p-2 group"
+                      >
+                        <img
+                          src={video.thumbnailUrl}
+                          alt={video.title}
+                          className="h-10 w-10 rounded-lg object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-text">
+                            {video.title}
+                          </p>
+                          <p className="text-xs text-text-muted">
+                            Order: {index + 1}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUp(index)}
+                            disabled={isFirst}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text disabled:opacity-30"
+                            title="Move Up"
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDown(index)}
+                            disabled={isLast}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-surface-2 hover:text-text disabled:opacity-30"
+                            title="Move Down"
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSelected(video.id)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger"
+                            title="Remove"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {selectedVideos.length === 0 && (
+                    <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-border bg-bg/20 text-center p-4 text-sm text-text-muted">
+                      Select assets from the library list on the left to add them to your playlist sequence.
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-5 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSavePlaylist}
+                    disabled={selectedIds.length === 0}
+                    className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-strong disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Save Playlist
                   </button>
-                );
-              })}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds([])}
+                    disabled={selectedIds.length === 0}
+                    className="inline-flex items-center justify-center rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text hover:border-accent/40 disabled:opacity-50"
+                    title="Clear list"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
             </div>
           </article>
-
-          {playlistGroups.map((group) => (
-            <article
-              key={group.title}
-              className="overflow-hidden rounded-2xl border border-border bg-surface/90 p-6 shadow-panel"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-text">
-                    {group.title}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-text-muted">
-                    {group.description}
-                  </p>
-                </div>
-                <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success ring-1 ring-success/25">
-                  {group.items.length} items
-                </span>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {group.items.slice(0, 5).map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-border/70 bg-bg/70 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-text">
-                        {item.title}
-                      </p>
-                      <p className="text-sm text-text-muted">
-                        {item.duration} • {item.size} • {item.uploadDate}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-text-muted">
-                      <span className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] ring-1 ring-border/70">
-                        {item.format}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </article>
-          ))}
-
-          {playlistGroups.length === 0 ? (
-            <div className="rounded-2xl border border-border bg-surface/90 p-6 text-sm text-text-muted shadow-panel">
-              No collections available yet. Upload a video to populate the
-              backend library.
-            </div>
-          ) : null}
         </div>
 
+        {/* Saved Playlists list */}
         <aside className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-            Live Queue Management
+            Saved Groupings
           </p>
           <h2 className="mt-2 text-xl font-semibold text-text">
-            Live backend snapshot and sequencing
+            Playlists Library
           </h2>
-          <p className="mt-3 text-sm leading-6 text-text-muted">
-            Queue items below are fetched from the backend broadcast state and
-            refreshed live. Drag-and-drop orchestration will be layered on top
-            of this live snapshot.
+          <p className="mt-2 text-sm leading-6 text-text-muted">
+            Click play to instantly overwrite the streaming queue, or append to queue upcoming videos.
           </p>
 
-          <div className="mt-5 space-y-3">
-            {liveQueue.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 rounded-xl border border-border/70 bg-bg/70 p-3"
-              >
-                <img
-                  src={item.thumbnailUrl}
-                  alt={item.title}
-                  className="h-14 w-14 rounded-lg object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-text">
-                    {item.title}
-                  </p>
-                  <p className="text-sm text-text-muted">
-                    {item.status === "playing"
-                      ? "Playing now"
-                      : `Starts in ${item.startsInMinutes ?? 0}m`}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="mt-5 space-y-4 max-h-[580px] overflow-y-auto pr-1">
+            {playlists.map((playlist) => {
+              const playlistVids = getPlaylistVideos(playlist);
 
-            {liveQueue.length === 0 ? (
-              <div className="rounded-xl border border-border/70 bg-bg/70 p-3 text-sm text-text-muted">
-                No queue items available yet.
+              return (
+                <article
+                  key={playlist.id}
+                  className="rounded-2xl border border-border/80 bg-bg/40 p-4 space-y-3 hover:border-accent/35 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-semibold text-text text-base">
+                        {playlist.name}
+                      </h3>
+                      <p className="text-xs text-text-muted">
+                        {playlist.assetIds.length} assets queued
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeletePlaylist(playlist.id)}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors"
+                      title="Delete playlist"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {playlistVids.length > 0 ? (
+                    <div className="flex items-center gap-1.5 overflow-hidden">
+                      {playlistVids.slice(0, 3).map((v, i) => (
+                        <img
+                          key={`${playlist.id}-thumb-${v.id}-${i}`}
+                          src={v.thumbnailUrl}
+                          alt={v.title}
+                          className="h-8 w-8 rounded-md object-cover border border-border/50"
+                          title={v.title}
+                        />
+                      ))}
+                      {playlistVids.length > 3 && (
+                        <span className="inline-flex h-8 min-w-8 items-center justify-center rounded-md bg-surface-2 border border-border/50 text-xs font-bold text-text-muted px-1">
+                          +{playlistVids.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-text-muted italic">No valid assets found.</p>
+                  )}
+
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handlePlayPlaylist(playlist)}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent/15 px-3 py-2 text-xs font-semibold text-accent-strong ring-1 ring-accent/30 hover:bg-accent/25"
+                    >
+                      <PlaySquare className="h-3.5 w-3.5" />
+                      Play Now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAppendPlaylist(playlist)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-xs font-semibold text-text hover:border-accent/40"
+                    >
+                      <ListPlus className="h-3.5 w-3.5" />
+                      Queue Next
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+
+            {playlists.length === 0 && (
+              <div className="rounded-xl border border-border/70 bg-bg/30 p-4 text-center text-sm text-text-muted italic">
+                No custom playlists saved yet. Use the Builder flow on the left to create and save groupings.
               </div>
-            ) : null}
+            )}
           </div>
         </aside>
       </div>

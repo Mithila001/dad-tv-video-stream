@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { StreamSocketProvider } from "./context/StreamSocketContext";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { MediaLibraryView } from "./pages/MediaLibraryView";
@@ -37,7 +38,9 @@ function AppRouter() {
       <Route
         element={
           currentUser?.role === "Network Operator" ? (
-            <AppShell />
+            <StreamSocketProvider>
+              <AppShell />
+            </StreamSocketProvider>
           ) : currentUser?.role === "Viewer" ? (
             <Navigate to="/tv" replace />
           ) : (

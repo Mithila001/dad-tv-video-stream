@@ -15,6 +15,7 @@ export type StreamSocketMessage =
       readonly type: "INITIAL_STATE";
       readonly stream: StreamSyncResponse | null;
       readonly assets: ReadonlyArray<VideoAsset>;
+      readonly liveQueue: ReadonlyArray<LiveQueueItem>;
     }
   | {
       readonly type: "STREAM_SYNC";
@@ -28,6 +29,11 @@ export type StreamSocketMessage =
   | {
       readonly type: "HEARTBEAT";
       readonly serverTime: number;
+    }
+  | {
+      readonly type: "QUEUE_UPDATE";
+      readonly liveQueue: ReadonlyArray<LiveQueueItem>;
+      readonly stream: StreamSyncResponse | null;
     };
 
 export interface StreamSnapshot {

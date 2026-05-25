@@ -4,7 +4,7 @@ import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
 import logoText from "../assets/dad-video-logo-text.png";
-import { useStreamSocket } from "../hooks/useStreamSocket";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface DashboardProps {
   readonly className?: string;
@@ -12,7 +12,7 @@ export interface DashboardProps {
 
 export function Dashboard({ className }: DashboardProps) {
   const { assets: videoLibrary, liveQueue, stream: streamSync, connectionState, lastEvent } =
-    useStreamSocket("admin");
+    useSharedStreamSocket();
   const [displayStreamSeconds, setDisplayStreamSeconds] = useState(0);
 
   const activeVideo = useMemo(() => {
@@ -72,7 +72,7 @@ export function Dashboard({ className }: DashboardProps) {
             order, and move assets through the admin workflow from one place.
           </p>
           <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-            Socket {connectionState} • {lastEvent}
+            Streaming Status: {connectionState === "connected" ? "Live" : connectionState} • {lastEvent}
           </p>
         </div>
 
@@ -179,8 +179,6 @@ export function Dashboard({ className }: DashboardProps) {
         </article>
 
         <LiveQueuePanel
-          items={liveQueue}
-          playlist={videoLibrary}
           streamVariant="console"
           className="p-5"
         />

@@ -14,7 +14,7 @@ import {
   type StreamControlCommand,
   type StreamSyncResponse,
 } from "../services/api";
-import { useStreamSocket } from "../hooks/useStreamSocket";
+import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface StreamNowPanelProps {
   readonly playlist: ReadonlyArray<VideoAsset>;
@@ -35,7 +35,7 @@ export function StreamNowPanel({
   variant = "player",
 }: StreamNowPanelProps) {
   const { assets, stream, connectionState, lastEvent } =
-    useStreamSocket("admin");
+    useSharedStreamSocket();
   const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const [fallbackVideoUrl, setFallbackVideoUrl] = useState<string | null>(null);
   const [syncTargetTime, setSyncTargetTime] = useState(0);
