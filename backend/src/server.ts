@@ -93,14 +93,14 @@ function loadVideoLibrary(): VideoAsset[] {
 
       return Boolean(
         candidate.id &&
-          candidate.title &&
-          candidate.category &&
-          candidate.duration &&
-          candidate.size &&
-          candidate.format &&
-          candidate.uploadDate &&
-          candidate.thumbnailUrl &&
-          candidate.videoUrl,
+        candidate.title &&
+        candidate.category &&
+        candidate.duration &&
+        candidate.size &&
+        candidate.format &&
+        candidate.uploadDate &&
+        candidate.thumbnailUrl &&
+        candidate.videoUrl,
       );
     });
   } catch {
@@ -122,7 +122,9 @@ app.use("/thumbnails", express.static(thumbsDir));
 const storage = multer.diskStorage({
   destination: (_request, _file, callback) => callback(null, videosDir),
   filename: (_request, file, callback) => {
-    const safe = file.originalname.replace(/[^a-z0-9.\-_]/gi, "-").toLowerCase();
+    const safe = file.originalname
+      .replace(/[^a-z0-9.\-_]/gi, "-")
+      .toLowerCase();
     callback(null, `${Date.now()}-${safe}`);
   },
 });
@@ -215,7 +217,8 @@ function advanceStreamToNextVideo() {
     return;
   }
 
-  streamState.currentIndex = (streamState.currentIndex + 1) % availableAssets.length;
+  streamState.currentIndex =
+    (streamState.currentIndex + 1) % availableAssets.length;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
     availableAssets[streamState.currentIndex]?.duration ?? "0:00",
@@ -282,78 +285,87 @@ app.get("/api/queue", (_request, response) => {
   response.json(buildLiveQueue());
 });
 
-app.post("/api/videos/upload", upload.single("file"), async (request, response) => {
-  try {
-    const title = String((request.body?.title as string) ?? "").trim();
-    const file = request.file;
+app.post(
+  "/api/videos/upload",
+  upload.single("file"),
+  async (request, response) => {
+    try {
+      const title = String((request.body?.title as string) ?? "").trim();
+      const file = request.file;
 
-    if (!file) {
-      response.status(400).json({ message: "No file uploaded" });
-      return;
-    }
+      if (!file) {
+        response.status(400).json({ message: "No file uploaded" });
+        return;
+      }
 
-    const filePath = file.path;
+      const filePath = file.path;
 
-    const probe = await new Promise<ffmpeg.FfprobeData>((resolve, reject) => {
-      ffmpeg.ffprobe(filePath, (error: Error | null, data: ffmpeg.FfprobeData) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+      const probe = await new Promise<ffmpeg.FfprobeData>((resolve, reject) => {
+        ffmpeg.ffprobe(
+          filePath,
+          (error: Error | null, data: ffmpeg.FfprobeData) => {
+            if (error) {
+              reject(error);
+              return;
+            }
 
-        resolve(data);
+            resolve(data);
+          },
+        );
       });
-    });
 
-    const durationSeconds = Math.max(
-      0,
-      Math.floor(Number(probe?.format?.duration ?? 0)),
-    );
+      const durationSeconds = Math.max(
+        0,
+        Math.floor(Number(probe?.format?.duration ?? 0)),
+      );
 
-    const thumbnailFilename = `${path.parse(file.filename).name}-thumb.png`;
+      const thumbnailFilename = `${path.parse(file.filename).name}-thumb.png`;
 
-    await new Promise<void>((resolve, reject) => {
-      ffmpeg(filePath)
-        .screenshots({
-          timestamps: ["50%"],
-          filename: thumbnailFilename,
-          folder: thumbsDir,
-          size: "480x?",
-        })
-        .on("end", () => resolve())
-        .on("error", (error: Error) => reject(error));
-    });
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(filePath)
+          .screenshots({
+            timestamps: ["50%"],
+            filename: thumbnailFilename,
+            folder: thumbsDir,
+            size: "480x?",
+          })
+          .on("end", () => resolve())
+          .on("error", (error: Error) => reject(error));
+      });
 
-    const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
-    const format: VideoFormat = file.mimetype.includes("quicktime") ? "MOV" : "MP4";
+      const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+      const format: VideoFormat = file.mimetype.includes("quicktime")
+        ? "MOV"
+        : "MP4";
 
-    const newAsset: VideoAsset = {
-      id: `uploaded-${Date.now()}`,
-      title: title || file.originalname,
-      category: "Uploaded",
-      duration: formatDuration(durationSeconds),
-      size: sizeStr,
-      format,
-      uploadDate: new Date().toISOString().slice(0, 10),
-      thumbnailUrl: `${serverBaseUrl}/thumbnails/${thumbnailFilename}`,
-      videoUrl: `${serverBaseUrl}/videos/${file.filename}`,
-    };
+      const newAsset: VideoAsset = {
+        id: `uploaded-${Date.now()}`,
+        title: title || file.originalname,
+        category: "Uploaded",
+        duration: formatDuration(durationSeconds),
+        size: sizeStr,
+        format,
+        uploadDate: new Date().toISOString().slice(0, 10),
+        thumbnailUrl: `${serverBaseUrl}/thumbnails/${thumbnailFilename}`,
+        videoUrl: `${serverBaseUrl}/videos/${file.filename}`,
+      };
 
-    availableAssets.push(newAsset);
-    persistVideoLibrary(availableAssets);
-    syncStreamStateToPlaylist();
+      availableAssets.push(newAsset);
+      persistVideoLibrary(availableAssets);
+      syncStreamStateToPlaylist();
 
-    response.status(201).json({ video: newAsset });
-  } catch (error) {
-    console.error("Upload failed:", error);
+      response.status(201).json({ video: newAsset });
+    } catch (error) {
+      console.error("Upload failed:", error);
 
-    if (request.file?.path && fs.existsSync(request.file.path)) {
-      fs.unlinkSync(request.file.path);
+      if (request.file?.path && fs.existsSync(request.file.path)) {
+        fs.unlinkSync(request.file.path);
+      }
+
+      response.status(500).json({ message: "Upload failed" });
     }
-
-    response.status(500).json({ message: "Upload failed" });
-  }
-});
+  },
+);
 
 app.get("/api/stream/sync", (_request, response) => {
   const syncPayload = buildSyncPayload();
@@ -373,12 +385,7 @@ app.post("/api/stream/control", (request, response) => {
     command?: "pause" | "play" | "next" | "previous";
   };
 
-  if (![
-    "pause",
-    "play",
-    "next",
-    "previous",
-  ].includes(command ?? "")) {
+  if (!["pause", "play", "next", "previous"].includes(command ?? "")) {
     response.status(400).json({
       message: "Invalid command. Use play, pause, next, or previous.",
     });

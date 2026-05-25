@@ -19,7 +19,7 @@ export function TopBar({
   notificationCount,
   onNotificationsClick,
   onProfileClick,
-  profileActionLabel = 'Profile',
+  profileActionLabel = "Profile",
   className,
 }: TopBarProps) {
   return (

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchLiveQueue, fetchVideoLibrary, type LiveQueueItem, type VideoAsset } from "../services/api";
+import {
+  fetchLiveQueue,
+  fetchVideoLibrary,
+  type LiveQueueItem,
+  type VideoAsset,
+} from "../services/api";
 
 interface PlaylistGroup {
   readonly title: string;
@@ -17,7 +22,10 @@ export function PlaylistsView() {
 
     async function loadData() {
       setIsLoading(true);
-      const [library, queue] = await Promise.all([fetchVideoLibrary(), fetchLiveQueue()]);
+      const [library, queue] = await Promise.all([
+        fetchVideoLibrary(),
+        fetchLiveQueue(),
+      ]);
 
       if (!isActive) {
         return;
@@ -72,8 +80,8 @@ export function PlaylistsView() {
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-text-muted md:text-base">
           These collections are generated from the live backend video library.
-          Categories and queue counts are refreshed from the API instead of using
-          placeholder playlist data.
+          Categories and queue counts are refreshed from the API instead of
+          using placeholder playlist data.
         </p>
       </div>
 
