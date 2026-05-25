@@ -1,17 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import type { UploadVideoPayload } from "../services/api";
-
-const stagedVideoChoices = [
-  {
-    label: "video_1.mp4",
-    value: "/videos/video_1.mp4",
-  },
-  {
-    label: "video_2.mp4",
-    value: "/videos/video_2.mp4",
-  },
-] as const;
 
 export interface UploadVideoModalProps {
   readonly open: boolean;
@@ -27,12 +16,29 @@ export function UploadVideoModal({
   onSubmit,
 }: UploadVideoModalProps) {
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Broadcast");
-  const [durationSeconds, setDurationSeconds] = useState(60);
-  const [videoUrl, setVideoUrl] = useState<
-    (typeof stagedVideoChoices)[number]["value"]
-  >(stagedVideoChoices[0].value);
+  const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function deriveTitleFromFileName(fileName: string) {
+    return fileName
+      .replace(/\.[^.]+$/, "")
+      .replace(/[._-]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (character) => character.toUpperCase());
+  }
+
+  const selectedFilePreview = useMemo(() => {
+    if (!file) {
+      return null;
+    }
+
+    return {
+      name: file.name,
+      sizeMb: (file.size / (1024 * 1024)).toFixed(2),
+      type: file.type || "video",
+    };
+  }, [file]);
 
   useEffect(() => {
     if (!open) {
@@ -55,18 +61,19 @@ export function UploadVideoModal({
           event.preventDefault();
           setError(null);
 
+          if (!file) {
+            setError("Choose a video file before uploading.");
+            return;
+          }
+
           try {
             await onSubmit({
               title: title.trim(),
-              category: category.trim(),
-              durationSeconds,
-              videoUrl,
+              file,
             });
 
             setTitle("");
-            setCategory("Broadcast");
-            setDurationSeconds(60);
-            setVideoUrl(stagedVideoChoices[0].value);
+            setFile(null);
           } catch (submissionError) {
             setError(
               submissionError instanceof Error
@@ -110,51 +117,32 @@ export function UploadVideoModal({
           </label>
 
           <label className="grid gap-2 text-sm font-medium text-text">
-            Category
+            Video File
             <input
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
-              type="text"
+              type="file"
+              accept="video/*"
               required
-              placeholder="Broadcast"
-              className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              onChange={(event) => {
+                const nextFile = event.target.files?.[0] ?? null;
+                setFile(nextFile);
+
+                if (nextFile) {
+                  setTitle(deriveTitleFromFileName(nextFile.name));
+                }
+              }}
+              className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-semibold file:text-bg hover:file:bg-accent-strong focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
           </label>
 
-          <label className="grid gap-2 text-sm font-medium text-text">
-            Duration (seconds)
-            <input
-              value={durationSeconds}
-              onChange={(event) =>
-                setDurationSeconds(Number(event.target.value))
-              }
-              type="number"
-              min={1}
-              step={1}
-              required
-              className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-            />
-          </label>
-
-          <label className="grid gap-2 text-sm font-medium text-text">
-            Source File
-            <select
-              value={videoUrl}
-              onChange={(event) =>
-                setVideoUrl(
-                  event.target
-                    .value as (typeof stagedVideoChoices)[number]["value"],
-                )
-              }
-              className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-            >
-              {stagedVideoChoices.map((choice) => (
-                <option key={choice.value} value={choice.value}>
-                  {choice.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          {selectedFilePreview ? (
+            <div className="rounded-xl border border-border/70 bg-surface-2/50 px-4 py-3 text-sm text-text-muted">
+              <p className="font-semibold text-text">Selected file</p>
+              <p className="mt-1 truncate">{selectedFilePreview.name}</p>
+              <p className="mt-1">
+                {selectedFilePreview.type} • {selectedFilePreview.sizeMb} MB
+              </p>
+            </div>
+          ) : null}
 
           {error ? (
             <p className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">

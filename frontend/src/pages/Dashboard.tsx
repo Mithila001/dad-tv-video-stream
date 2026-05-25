@@ -1,14 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Clock3, Gauge, PencilLine, Trash2, Tv2 } from "lucide-react";
 import { LiveQueuePanel } from "../components/LiveQueuePanel";
 import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
+import logoText from "../assets/dad-video-logo-text.png";
 import {
   type LiveQueueItem,
   type VideoAsset,
   fetchLiveQueue,
   fetchStreamSync,
   fetchVideoLibrary,
+  type StreamSyncResponse,
 } from "../services/api";
 
 export interface DashboardProps {
@@ -20,6 +22,7 @@ export function Dashboard({ className }: DashboardProps) {
     [],
   );
   const [liveQueue, setLiveQueue] = useState<ReadonlyArray<LiveQueueItem>>([]);
+  const [streamSync, setStreamSync] = useState<StreamSyncResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -44,8 +47,8 @@ export function Dashboard({ className }: DashboardProps) {
     }
 
     async function refreshRealtimeStreamData() {
-      const [, queue] = await Promise.all([
-        fetchStreamSync(),
+      const [stream, queue] = await Promise.all([
+        fetchStreamSync().catch(() => null),
         fetchLiveQueue(),
       ]);
 
@@ -53,6 +56,7 @@ export function Dashboard({ className }: DashboardProps) {
         return;
       }
 
+      setStreamSync(stream);
       setLiveQueue(queue);
     }
 
@@ -81,13 +85,30 @@ export function Dashboard({ className }: DashboardProps) {
     };
   }, []);
 
-  const featuredVideo = videoLibrary[0];
+  const featuredVideo = useMemo(() => {
+    if (streamSync) {
+      return (
+        videoLibrary.find((video) => video.id === streamSync.videoId) ??
+        videoLibrary[0] ??
+        null
+      );
+    }
+
+    return videoLibrary[0] ?? null;
+  }, [streamSync, videoLibrary]);
+
+  const playbackLabel = streamSync?.isPlaying ? "Playing now" : "Paused";
 
   return (
     <div className={["space-y-6", className].filter(Boolean).join(" ")}>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
+          <img
+            src={logoText}
+            alt="DAD Video"
+            className="h-12 w-auto max-w-[180px] object-contain"
+          />
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
             Overview
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text md:text-4xl">
@@ -106,22 +127,25 @@ export function Dashboard({ className }: DashboardProps) {
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-4 rounded-xl bg-surface-2/70 px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-text">Main Channel</p>
+                <p className="text-sm font-semibold text-text">
+                  {featuredVideo?.title ?? "No active stream"}
+                </p>
                 <p className="text-sm text-text-muted">
-                  HD 1080p stream active
+                  {streamSync
+                    ? `Sync ${playbackLabel} • ${Math.floor(streamSync.currentTime / 60)}m ${streamSync.currentTime % 60}s`
+                    : "Waiting for stream sync"}
                 </p>
               </div>
               <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-semibold text-success ring-1 ring-success/25">
-                Playing Now
+                {playbackLabel}
               </span>
             </div>
 
             <div className="rounded-xl border border-border/70 bg-bg/70 px-4 py-3">
-              <p className="text-sm font-semibold text-text">
-                Network Operator
-              </p>
+              <p className="text-sm font-semibold text-text">Live queue</p>
               <p className="mt-1 text-sm text-text-muted">
-                Ready to upload, schedule, and route media assets.
+                {liveQueue.length} items fetched from the backend, ready for
+                sequencing.
               </p>
             </div>
           </div>

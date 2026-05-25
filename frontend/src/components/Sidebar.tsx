@@ -85,9 +85,9 @@ export function Sidebar({ profile, navigation, className }: SidebarProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
             LobbyStream
           </p>
-          <h1 className="m-0 text-lg font-semibold leading-tight text-text">
+          <p className="m-0 text-sm font-semibold leading-tight text-text sm:text-base">
             Video Management
-          </h1>
+          </p>
         </div>
       </div>
 

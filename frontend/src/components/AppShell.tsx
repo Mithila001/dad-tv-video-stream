@@ -52,6 +52,8 @@ export function AppShell({ children }: AppShellProps) {
       await uploadVideoAsset(payload);
       window.dispatchEvent(new Event("lobbystream:data-updated"));
       setIsUploadModalOpen(false);
+    } catch (error) {
+      throw error;
     } finally {
       setIsUploading(false);
     }

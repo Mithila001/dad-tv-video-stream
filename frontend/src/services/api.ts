@@ -40,10 +40,8 @@ export interface StreamSyncResponse {
 export type StreamControlCommand = "play" | "pause" | "next" | "previous";
 
 export interface UploadVideoPayload {
+  readonly file: File;
   readonly title: string;
-  readonly category: string;
-  readonly durationSeconds: number;
-  readonly videoUrl: string;
 }
 
 export interface UploadVideoResponse {
@@ -126,12 +124,13 @@ export async function sendStreamControl(
 export async function uploadVideoAsset(
   payload: UploadVideoPayload,
 ): Promise<UploadVideoResponse> {
+  const formData = new FormData();
+  formData.append("file", payload.file);
+  formData.append("title", payload.title);
+
   const response = await fetch(`${API_BASE_URL}/videos/upload`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    body: formData,
   });
 
   if (!response.ok) {

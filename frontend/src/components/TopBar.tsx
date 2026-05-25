@@ -36,7 +36,7 @@ export function TopBar({
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
             Admin Console
           </p>
-          <h2 className="m-0 text-2xl font-semibold leading-tight text-text">
+          <h2 className="m-0 text-xl font-semibold leading-tight text-text md:text-2xl">
             LobbyStream Video Management System
           </h2>
         </div>

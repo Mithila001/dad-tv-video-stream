@@ -1,74 +1,156 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
-import {
-  type LiveQueueItem,
-  type VideoAsset,
-  type VideoFormat,
-  liveQueueSequence,
-  resolveLogin,
-  videoLibrary,
-  type LoginRequestBody,
-} from "./mockData";
+import fs from "fs";
+import multer from "multer";
+import ffmpeg from "fluent-ffmpeg";
+
+type VideoFormat = "MP4" | "MOV";
+type LiveQueueStatus = "playing" | "upcoming";
+type UserRole = "Network Operator" | "Viewer";
+
+interface VideoAsset {
+  readonly id: string;
+  readonly title: string;
+  readonly category: string;
+  readonly duration: string;
+  readonly size: string;
+  readonly format: VideoFormat;
+  readonly uploadDate: string;
+  readonly thumbnailUrl: string;
+  readonly videoUrl: string;
+}
+
+interface LiveQueueItem {
+  readonly id: string;
+  readonly title: string;
+  readonly thumbnailUrl: string;
+  readonly status: LiveQueueStatus;
+  readonly startsInMinutes?: number;
+  readonly sourceVideoId: string;
+}
+
+interface LoginRequestBody {
+  readonly username?: string;
+  readonly password?: string;
+}
+
+interface AuthenticatedUser {
+  readonly username: string;
+  readonly email: string;
+  readonly role: UserRole;
+}
+
+const authUsers: ReadonlyArray<
+  AuthenticatedUser & { readonly password: string }
+> = [
+  {
+    username: "admin",
+    password: "admin123",
+    email: "admin@lobbystream.tv",
+    role: "Network Operator",
+  },
+  {
+    username: "tv-lobby",
+    password: "tv123",
+    email: "tv-lobby@lobbystream.tv",
+    role: "Viewer",
+  },
+];
 
 const app = express();
 const port = 5000;
 const serverBaseUrl = "";
-const availableAssets: VideoAsset[] = videoLibrary.map((asset) => ({
-  ...asset,
-}));
-const runtimeQueue: LiveQueueItem[] = liveQueueSequence.map((item) => ({
-  ...item,
-}));
 
-const stagedVideoSources = new Map<
-  string,
-  {
-    readonly thumbnailUrl: string;
-    readonly size: string;
-    readonly format: VideoFormat;
+const assetsRootDir = path.resolve(__dirname, "../assets");
+const videosDir = path.join(assetsRootDir, "videos");
+const thumbsDir = path.join(assetsRootDir, "thumbnails");
+const registryFilePath = path.join(assetsRootDir, "library.json");
+
+fs.mkdirSync(assetsRootDir, { recursive: true });
+fs.mkdirSync(videosDir, { recursive: true });
+fs.mkdirSync(thumbsDir, { recursive: true });
+
+function loadVideoLibrary(): VideoAsset[] {
+  if (!fs.existsSync(registryFilePath)) {
+    return [];
   }
->(
-  ["video_1.mp4", "video_2.mp4"].map((fileName) => {
-    const videoUrl = `${serverBaseUrl}/videos/${fileName}`;
-    const sourceAsset = availableAssets.find(
-      (asset) => asset.videoUrl === videoUrl,
-    );
 
-    return [
-      videoUrl,
-      {
-        thumbnailUrl:
-          sourceAsset?.thumbnailUrl ?? availableAssets[0]?.thumbnailUrl ?? "",
-        size: sourceAsset?.size ?? "1.0 GB",
-        format: sourceAsset?.format ?? "MP4",
-      },
-    ] as const;
-  }),
-);
+  try {
+    const rawContents = fs.readFileSync(registryFilePath, "utf8");
+    const parsed = JSON.parse(rawContents) as unknown;
 
-interface UploadVideoRequestBody {
-  readonly title?: string;
-  readonly category?: string;
-  readonly durationSeconds?: number;
-  readonly videoUrl?: string;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.filter((entry): entry is VideoAsset => {
+      if (typeof entry !== "object" || entry === null) {
+        return false;
+      }
+
+      const candidate = entry as Partial<VideoAsset>;
+
+      return Boolean(
+        candidate.id &&
+          candidate.title &&
+          candidate.category &&
+          candidate.duration &&
+          candidate.size &&
+          candidate.format &&
+          candidate.uploadDate &&
+          candidate.thumbnailUrl &&
+          candidate.videoUrl,
+      );
+    });
+  } catch {
+    return [];
+  }
 }
+
+function persistVideoLibrary(library: ReadonlyArray<VideoAsset>) {
+  fs.writeFileSync(registryFilePath, JSON.stringify(library, null, 2));
+}
+
+let availableAssets: VideoAsset[] = loadVideoLibrary();
 
 app.use(cors());
 app.use(express.json());
-app.use("/videos", express.static(path.resolve(__dirname, "../assets/videos")));
+app.use("/videos", express.static(videosDir));
+app.use("/thumbnails", express.static(thumbsDir));
+
+const storage = multer.diskStorage({
+  destination: (_request, _file, callback) => callback(null, videosDir),
+  filename: (_request, file, callback) => {
+    const safe = file.originalname.replace(/[^a-z0-9.\-_]/gi, "-").toLowerCase();
+    callback(null, `${Date.now()}-${safe}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 500 * 1024 * 1024 },
+  fileFilter: (_request, file, callback) => {
+    if (!file.mimetype.startsWith("video/")) {
+      callback(new Error("Only video uploads are allowed"));
+      return;
+    }
+
+    callback(null, true);
+  },
+});
 
 function durationToSeconds(duration: string): number {
   const [minutes = "0", seconds = "0"] = duration.split(":");
   return Number(minutes) * 60 + Number(seconds);
 }
 
-function getStreamPlaylist(): VideoAsset[] {
-  return runtimeQueue
-    .map((queueItem) =>
-      availableAssets.find((video) => video.id === queueItem.sourceVideoId),
-    )
-    .filter((video): video is VideoAsset => Boolean(video));
+function formatDuration(durationSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(durationSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 interface StreamRuntimeState {
@@ -82,73 +164,83 @@ interface StreamRuntimeState {
 const streamState: StreamRuntimeState = {
   currentIndex: 0,
   startedAtMs: Date.now(),
-  durationSeconds: durationToSeconds(
-    getStreamPlaylist()[0]?.duration ?? "0:00",
-  ),
+  durationSeconds: durationToSeconds(availableAssets[0]?.duration ?? "0:00"),
   currentTimeSeconds: 0,
   isPlaying: true,
 };
 
-function formatDuration(durationSeconds: number): string {
-  const safeSeconds = Math.max(0, Math.floor(durationSeconds));
-  const minutes = Math.floor(safeSeconds / 60);
-  const seconds = safeSeconds % 60;
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
-function createQueueItem(video: VideoAsset): LiveQueueItem {
-  return {
-    id: `live-${video.id}`,
-    title: video.title,
-    thumbnailUrl: video.thumbnailUrl,
-    status: "upcoming",
-    sourceVideoId: video.id,
-  };
-}
-
-function updateRuntimeQueue() {
-  // Keep the live queue order stable; stream timing is tracked separately.
-  return;
-}
-
-function advanceStreamToNextVideo() {
-  const streamPlaylist = getStreamPlaylist();
-
-  if (streamPlaylist.length === 0) {
+function syncStreamStateToPlaylist() {
+  if (availableAssets.length === 0) {
+    streamState.currentIndex = 0;
+    streamState.durationSeconds = 0;
+    streamState.currentTimeSeconds = 0;
     return;
   }
 
-  streamState.currentIndex =
-    (streamState.currentIndex + 1) % streamPlaylist.length;
+  if (streamState.currentIndex >= availableAssets.length) {
+    streamState.currentIndex = 0;
+  }
+
+  streamState.durationSeconds = durationToSeconds(
+    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
+  );
+  streamState.currentTimeSeconds = Math.min(
+    streamState.currentTimeSeconds,
+    streamState.durationSeconds,
+  );
+}
+
+syncStreamStateToPlaylist();
+
+function buildLiveQueue(): LiveQueueItem[] {
+  return availableAssets.map((video, index) => ({
+    id: `live-${video.id}`,
+    title: video.title,
+    thumbnailUrl: video.thumbnailUrl,
+    status: index === streamState.currentIndex ? "playing" : "upcoming",
+    startsInMinutes:
+      index === streamState.currentIndex
+        ? undefined
+        : Math.max(0, (index - streamState.currentIndex) * 12),
+    sourceVideoId: video.id,
+  }));
+}
+
+function getActiveVideo() {
+  return availableAssets[streamState.currentIndex] ?? null;
+}
+
+function advanceStreamToNextVideo() {
+  if (availableAssets.length === 0) {
+    return;
+  }
+
+  streamState.currentIndex = (streamState.currentIndex + 1) % availableAssets.length;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
-    streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
+    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
 }
 
 function moveStreamByOffset(offset: number) {
-  const streamPlaylist = getStreamPlaylist();
-
-  if (streamPlaylist.length === 0) {
+  if (availableAssets.length === 0) {
     return;
   }
 
   const nextIndex =
-    (streamState.currentIndex + offset + streamPlaylist.length) %
-    streamPlaylist.length;
+    (streamState.currentIndex + offset + availableAssets.length) %
+    availableAssets.length;
   streamState.currentIndex = nextIndex;
   streamState.startedAtMs = Date.now();
   streamState.durationSeconds = durationToSeconds(
-    streamPlaylist[streamState.currentIndex]?.duration ?? "0:00",
+    availableAssets[streamState.currentIndex]?.duration ?? "0:00",
   );
   streamState.currentTimeSeconds = 0;
 }
 
 function buildSyncPayload() {
-  const streamPlaylist = getStreamPlaylist();
-  const activeVideo = streamPlaylist[streamState.currentIndex];
+  const activeVideo = getActiveVideo();
 
   if (!activeVideo) {
     return null;
@@ -166,9 +258,7 @@ function buildSyncPayload() {
 }
 
 setInterval(() => {
-  const streamPlaylist = getStreamPlaylist();
-
-  if (streamPlaylist.length === 0 || streamState.durationSeconds <= 0) {
+  if (availableAssets.length === 0 || streamState.durationSeconds <= 0) {
     return;
   }
 
@@ -181,7 +271,6 @@ setInterval(() => {
 
   if (streamState.currentTimeSeconds >= streamState.durationSeconds) {
     advanceStreamToNextVideo();
-    return;
   }
 }, 1000);
 
@@ -190,66 +279,85 @@ app.get("/api/videos", (_request, response) => {
 });
 
 app.get("/api/queue", (_request, response) => {
-  response.json(runtimeQueue);
+  response.json(buildLiveQueue());
 });
 
-app.post("/api/videos/upload", (request, response) => {
-  const {
-    title = "",
-    category = "",
-    durationSeconds,
-    videoUrl = "",
-  } = request.body as UploadVideoRequestBody;
-  const safeDurationSeconds = Number(durationSeconds);
+app.post("/api/videos/upload", upload.single("file"), async (request, response) => {
+  try {
+    const title = String((request.body?.title as string) ?? "").trim();
+    const file = request.file;
 
-  const normalizedTitle = title.trim();
-  const normalizedCategory = category.trim();
+    if (!file) {
+      response.status(400).json({ message: "No file uploaded" });
+      return;
+    }
 
-  if (
-    !normalizedTitle ||
-    !normalizedCategory ||
-    !Number.isFinite(safeDurationSeconds) ||
-    !videoUrl
-  ) {
-    response.status(400).json({
-      message:
-        "Invalid upload payload. Provide title, category, durationSeconds, and videoUrl.",
+    const filePath = file.path;
+
+    const probe = await new Promise<ffmpeg.FfprobeData>((resolve, reject) => {
+      ffmpeg.ffprobe(filePath, (error: Error | null, data: ffmpeg.FfprobeData) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(data);
+      });
     });
-    return;
-  }
 
-  const sourceAsset = stagedVideoSources.get(videoUrl);
+    const durationSeconds = Math.max(
+      0,
+      Math.floor(Number(probe?.format?.duration ?? 0)),
+    );
 
-  if (!sourceAsset) {
-    response.status(400).json({
-      message: "Invalid videoUrl. Choose one of the staged local video files.",
+    const thumbnailFilename = `${path.parse(file.filename).name}-thumb.png`;
+
+    await new Promise<void>((resolve, reject) => {
+      ffmpeg(filePath)
+        .screenshots({
+          timestamps: ["50%"],
+          filename: thumbnailFilename,
+          folder: thumbsDir,
+          size: "480x?",
+        })
+        .on("end", () => resolve())
+        .on("error", (error: Error) => reject(error));
     });
-    return;
+
+    const sizeStr = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+    const format: VideoFormat = file.mimetype.includes("quicktime") ? "MOV" : "MP4";
+
+    const newAsset: VideoAsset = {
+      id: `uploaded-${Date.now()}`,
+      title: title || file.originalname,
+      category: "Uploaded",
+      duration: formatDuration(durationSeconds),
+      size: sizeStr,
+      format,
+      uploadDate: new Date().toISOString().slice(0, 10),
+      thumbnailUrl: `${serverBaseUrl}/thumbnails/${thumbnailFilename}`,
+      videoUrl: `${serverBaseUrl}/videos/${file.filename}`,
+    };
+
+    availableAssets.push(newAsset);
+    persistVideoLibrary(availableAssets);
+    syncStreamStateToPlaylist();
+
+    response.status(201).json({ video: newAsset });
+  } catch (error) {
+    console.error("Upload failed:", error);
+
+    if (request.file?.path && fs.existsSync(request.file.path)) {
+      fs.unlinkSync(request.file.path);
+    }
+
+    response.status(500).json({ message: "Upload failed" });
   }
-
-  const newAsset: VideoAsset = {
-    id: `uploaded-${normalizedTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
-    title: normalizedTitle,
-    category: normalizedCategory,
-    duration: formatDuration(Math.max(1, Math.floor(safeDurationSeconds))),
-    size: sourceAsset.size,
-    format: sourceAsset.format,
-    uploadDate: new Date().toISOString().slice(0, 10),
-    thumbnailUrl: sourceAsset.thumbnailUrl,
-    videoUrl,
-  };
-
-  availableAssets.push(newAsset);
-  runtimeQueue.push(createQueueItem(newAsset));
-  updateRuntimeQueue();
-
-  response.status(201).json({ video: newAsset });
 });
 
 app.get("/api/stream/sync", (_request, response) => {
   const syncPayload = buildSyncPayload();
+
   if (!syncPayload) {
     response
       .status(503)
@@ -265,7 +373,12 @@ app.post("/api/stream/control", (request, response) => {
     command?: "pause" | "play" | "next" | "previous";
   };
 
-  if (!["pause", "play", "next", "previous"].includes(command ?? "")) {
+  if (![
+    "pause",
+    "play",
+    "next",
+    "previous",
+  ].includes(command ?? "")) {
     response.status(400).json({
       message: "Invalid command. Use play, pause, next, or previous.",
     });
@@ -302,15 +415,51 @@ app.post("/api/stream/control", (request, response) => {
 
 app.post("/api/login", (request, response) => {
   const { username = "", password = "" } = request.body as LoginRequestBody;
-  const currentUser = resolveLogin(username, password);
+  const currentUser = authUsers.find(
+    (entry) => entry.username === username && entry.password === password,
+  );
 
   if (!currentUser) {
     response.status(401).json({ message: "Invalid credentials" });
     return;
   }
 
-  response.json({ currentUser });
+  response.json({
+    currentUser: {
+      username: currentUser.username,
+      email: currentUser.email,
+      role: currentUser.role,
+    },
+  });
 });
+
+app.use(
+  (
+    error: unknown,
+    _request: express.Request,
+    response: express.Response,
+    next: express.NextFunction,
+  ) => {
+    if (error instanceof multer.MulterError) {
+      if (error.code === "LIMIT_FILE_SIZE") {
+        response.status(413).json({
+          message: "Video exceeds the 500MB upload limit.",
+        });
+        return;
+      }
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "Only video uploads are allowed"
+    ) {
+      response.status(400).json({ message: error.message });
+      return;
+    }
+
+    next(error);
+  },
+);
 
 app.listen(port, () => {
   console.log(`LobbyStream API listening on http://localhost:${port}`);
