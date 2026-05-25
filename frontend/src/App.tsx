@@ -5,6 +5,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
 import { MediaLibraryView } from "./pages/MediaLibraryView";
 import { PlaylistsView } from "./pages/PlaylistsView";
+import { SettingsView } from "./pages/SettingsView";
 import { TvDisplay } from "./pages/TvDisplay";
 
 function App() {
@@ -48,6 +49,7 @@ function AppRouter() {
         <Route path="library" element={<MediaLibraryView />} />
         <Route path="playlists" element={<PlaylistsView />} />
         <Route path="live" element={<Dashboard />} />
+        <Route path="settings" element={<SettingsView />} />
       </Route>
       <Route
         path="/tv"

@@ -4,7 +4,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ./backend/assets:/app/assets
+      - video_data:/app/assets/videos
+      - thumbnail_data:/app/assets/thumbnails
     environment:
       - NODE_ENV=production
 
@@ -14,3 +15,10 @@ services:
       - "80:80"
     depends_on:
       - backend
+    volumes:
+      - video_data:/usr/share/nginx/html/videos:ro
+      - thumbnail_data:/usr/share/nginx/html/thumbnails:ro
+
+volumes:
+  video_data:
+  thumbnail_data:

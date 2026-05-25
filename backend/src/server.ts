@@ -1,9 +1,12 @@
 import express from "express";
 import cors from "cors";
+import http from "http";
+import type { IncomingMessage } from "http";
 import path from "path";
 import fs from "fs";
 import multer from "multer";
 import ffmpeg from "fluent-ffmpeg";
+import WebSocket, { WebSocketServer, type RawData } from "ws";
 
 type VideoFormat = "MP4" | "MOV";
 type LiveQueueStatus = "playing" | "upcoming";
@@ -41,6 +44,44 @@ interface AuthenticatedUser {
   readonly role: UserRole;
 }
 
+type StreamControlCommand = "play" | "pause" | "next" | "previous";
+
+interface StreamSyncResponse {
+  readonly videoId: string;
+  readonly videoUrl: string;
+  readonly durationSeconds: number;
+  readonly currentTime: number;
+  readonly startedAtMs: number;
+  readonly serverNowMs: number;
+  readonly isPlaying: boolean;
+}
+
+type WebSocketClientKind = "tv" | "admin" | "unknown";
+
+type WebSocketEvent =
+  | {
+      readonly type: "CLIENT_READY";
+      readonly clientKind: WebSocketClientKind;
+    }
+  | {
+      readonly type: "INITIAL_STATE";
+      readonly stream: StreamSyncResponse | null;
+      readonly assets: ReadonlyArray<VideoAsset>;
+    }
+  | {
+      readonly type: "STREAM_SYNC";
+      readonly command: StreamControlCommand;
+      readonly stream: StreamSyncResponse;
+    }
+  | {
+      readonly type: "ASSET_ADDED";
+      readonly asset: VideoAsset;
+    }
+  | {
+      readonly type: "HEARTBEAT";
+      readonly serverTime: number;
+    };
+
 const authUsers: ReadonlyArray<
   AuthenticatedUser & { readonly password: string }
 > = [
@@ -60,12 +101,14 @@ const authUsers: ReadonlyArray<
 
 const app = express();
 const port = 5000;
+const server = http.createServer(app);
+const wsServer = new WebSocketServer({ server, path: "/ws" });
 const serverBaseUrl = "";
 
 const assetsRootDir = path.resolve(__dirname, "../assets");
 const videosDir = path.join(assetsRootDir, "videos");
 const thumbsDir = path.join(assetsRootDir, "thumbnails");
-const registryFilePath = path.join(assetsRootDir, "library.json");
+const registryFilePath = path.join(videosDir, ".library.json");
 
 fs.mkdirSync(assetsRootDir, { recursive: true });
 fs.mkdirSync(videosDir, { recursive: true });
@@ -113,11 +156,26 @@ function persistVideoLibrary(library: ReadonlyArray<VideoAsset>) {
 }
 
 let availableAssets: VideoAsset[] = loadVideoLibrary();
+const tvSockets = new Set<WebSocket>();
 
 app.use(cors());
 app.use(express.json());
 app.use("/videos", express.static(videosDir));
 app.use("/thumbnails", express.static(thumbsDir));
+
+function safeSend(socket: WebSocket, payload: WebSocketEvent) {
+  if (socket.readyState !== WebSocket.OPEN) {
+    return;
+  }
+
+  socket.send(JSON.stringify(payload));
+}
+
+function broadcastToTvClients(payload: WebSocketEvent) {
+  for (const socket of tvSockets) {
+    safeSend(socket, payload);
+  }
+}
 
 const storage = multer.diskStorage({
   destination: (_request, _file, callback) => callback(null, videosDir),
@@ -260,6 +318,20 @@ function buildSyncPayload() {
   };
 }
 
+function broadcastStreamSync(command: StreamControlCommand) {
+  const syncPayload = buildSyncPayload();
+
+  if (!syncPayload) {
+    return;
+  }
+
+  broadcastToTvClients({
+    type: "STREAM_SYNC",
+    command,
+    stream: syncPayload,
+  });
+}
+
 setInterval(() => {
   if (availableAssets.length === 0 || streamState.durationSeconds <= 0) {
     return;
@@ -353,6 +425,10 @@ app.post(
       availableAssets.push(newAsset);
       persistVideoLibrary(availableAssets);
       syncStreamStateToPlaylist();
+      broadcastToTvClients({
+        type: "ASSET_ADDED",
+        asset: newAsset,
+      });
 
       response.status(201).json({ video: newAsset });
     } catch (error) {
@@ -417,6 +493,7 @@ app.post("/api/stream/control", (request, response) => {
     return;
   }
 
+  broadcastStreamSync(command as StreamControlCommand);
   response.json(syncPayload);
 });
 
@@ -468,6 +545,70 @@ app.use(
   },
 );
 
-app.listen(port, () => {
+wsServer.on("connection", (socket: WebSocket, request: IncomingMessage) => {
+  const url = new URL(request.url ?? "/", "http://localhost");
+  const clientKind = (url.searchParams.get("client") ?? "unknown") as WebSocketClientKind;
+
+  if (clientKind === "tv") {
+    tvSockets.add(socket);
+  }
+
+  safeSend(socket, {
+    type: "CLIENT_READY",
+    clientKind,
+  });
+
+  safeSend(socket, {
+    type: "INITIAL_STATE",
+    stream: buildSyncPayload(),
+    assets: availableAssets,
+  });
+
+  socket.on("message", (data: RawData) => {
+    try {
+      const parsed = JSON.parse(data.toString()) as Partial<WebSocketEvent> & {
+        readonly type?: string;
+      };
+
+      if (parsed.type === "CLIENT_READY" && clientKind === "tv") {
+        safeSend(socket, {
+          type: "INITIAL_STATE",
+          stream: buildSyncPayload(),
+          assets: availableAssets,
+        });
+      }
+    } catch {
+      // Ignore malformed socket messages.
+    }
+  });
+
+  socket.on("close", () => {
+    tvSockets.delete(socket);
+  });
+});
+
+wsServer.on("close", () => {
+  tvSockets.clear();
+});
+
+const heartbeatTimer = setInterval(() => {
+  for (const socket of tvSockets) {
+    if (socket.readyState !== WebSocket.OPEN) {
+      tvSockets.delete(socket);
+      continue;
+    }
+
+    safeSend(socket, {
+      type: "HEARTBEAT",
+      serverTime: Date.now(),
+    });
+  }
+}, 15000);
+
+server.on("close", () => {
+  clearInterval(heartbeatTimer);
+});
+
+server.listen(port, () => {
   console.log(`LobbyStream API listening on http://localhost:${port}`);
 });
