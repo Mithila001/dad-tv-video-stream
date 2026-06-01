@@ -205,7 +205,7 @@ export function PlaylistsView() {
                   />
                 </label>
 
-                <div className="max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-95 overflow-y-auto space-y-2 pr-1">
                   {filteredVideos.map((video) => {
                     const isSelected = selectedIds.includes(video.id);
 
@@ -264,7 +264,7 @@ export function PlaylistsView() {
                   </span>
                 </div>
 
-                <div className="flex-1 max-h-[380px] overflow-y-auto space-y-2 pr-1">
+                <div className="flex-1 max-h-95 overflow-y-auto space-y-2 pr-1">
                   {selectedVideos.map((video, index) => {
                     const isFirst = index === 0;
                     const isLast = index === selectedVideos.length - 1;
@@ -325,7 +325,7 @@ export function PlaylistsView() {
                   )}
                 </div>
 
-                <div className="mt-5 flex gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={handleSavePlaylist}
@@ -362,7 +362,7 @@ export function PlaylistsView() {
             Click play to instantly overwrite the streaming queue, or append to queue upcoming videos.
           </p>
 
-          <div className="mt-5 space-y-4 max-h-[580px] overflow-y-auto pr-1">
+          <div className="mt-5 space-y-4 max-h-145 overflow-y-auto pr-1">
             {playlists.map((playlist) => {
               const playlistVids = getPlaylistVideos(playlist);
 
@@ -373,7 +373,7 @@ export function PlaylistsView() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h3 className="truncate font-semibold text-text text-base">
+                      <h3 className="u-clamp-2 font-semibold text-text text-base">
                         {playlist.name}
                       </h3>
                       <p className="text-xs text-text-muted">
@@ -411,7 +411,7 @@ export function PlaylistsView() {
                     <p className="text-xs text-text-muted italic">No valid assets found.</p>
                   )}
 
-                  <div className="flex gap-2 pt-1">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => handlePlayPlaylist(playlist)}

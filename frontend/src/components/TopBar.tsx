@@ -36,7 +36,7 @@ export function TopBar({
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
             Admin Console
           </p>
-          <h2 className="m-0 text-xl font-semibold leading-tight text-text md:text-2xl">
+          <h2 className="u-clamp-2 m-0 text-xl font-semibold leading-tight text-text md:text-2xl">
             LobbyStream Video Management System
           </h2>
         </div>
@@ -61,7 +61,7 @@ export function TopBar({
           />
         </label>
 
-        <div className="flex items-center gap-2 self-end md:self-auto">
+        <div className="flex flex-wrap items-center justify-end gap-2 self-end md:self-auto">
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"

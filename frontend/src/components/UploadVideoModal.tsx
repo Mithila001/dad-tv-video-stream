@@ -53,7 +53,7 @@ export function UploadVideoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 px-4 py-6 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-bg/80 px-4 py-6 backdrop-blur-sm sm:items-center">
       <div className="absolute inset-0" aria-hidden="true" onClick={onClose} />
 
       <form
@@ -82,7 +82,7 @@ export function UploadVideoModal({
             );
           }
         }}
-        className="relative z-10 w-full max-w-xl rounded-3xl border border-border bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]"
+        className="relative z-10 flex w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-border bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] max-h-[calc(100vh-3rem)]"
       >
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -103,7 +103,7 @@ export function UploadVideoModal({
           </button>
         </div>
 
-        <div className="mt-6 grid gap-4">
+        <div className="mt-6 grid gap-4 overflow-y-auto pr-1">
           <label className="grid gap-2 text-sm font-medium text-text">
             Video Title
             <input
@@ -130,14 +130,16 @@ export function UploadVideoModal({
                   setTitle(deriveTitleFromFileName(nextFile.name));
                 }
               }}
-              className="rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition file:mr-4 file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-semibold file:text-bg hover:file:bg-accent-strong focus:border-accent focus:ring-2 focus:ring-accent/30"
+              className="w-full rounded-xl border border-border bg-bg px-4 py-3 text-text outline-none transition file:mr-4 file:max-w-full file:overflow-hidden file:text-ellipsis file:whitespace-nowrap file:rounded-lg file:border-0 file:bg-accent file:px-3 file:py-2 file:text-sm file:font-semibold file:text-bg hover:file:bg-accent-strong focus:border-accent focus:ring-2 focus:ring-accent/30"
             />
           </label>
 
           {selectedFilePreview ? (
             <div className="rounded-xl border border-border/70 bg-surface-2/50 px-4 py-3 text-sm text-text-muted">
               <p className="font-semibold text-text">Selected file</p>
-              <p className="mt-1 truncate">{selectedFilePreview.name}</p>
+              <p className="mt-1 u-break-anywhere" title={selectedFilePreview.name}>
+                {selectedFilePreview.name}
+              </p>
               <p className="mt-1">
                 {selectedFilePreview.type} • {selectedFilePreview.sizeMb} MB
               </p>
@@ -151,7 +153,7 @@ export function UploadVideoModal({
           ) : null}
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+        <div className="mt-6 shrink-0 flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={onClose}
