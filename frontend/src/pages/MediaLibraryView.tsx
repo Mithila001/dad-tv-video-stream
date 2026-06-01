@@ -146,13 +146,13 @@ export function MediaLibraryView() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-1 text-sm text-text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-sm text-text-muted">
         <span className="min-w-0 truncate">
           {isLoading
             ? "Loading assets..."
             : `${filteredVideos.length} assets available`}
         </span>
-        <span className="shrink-0 rounded-full border border-border/70 bg-surface-2/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
+        <span className="u-nowrap-ellipsis max-w-full rounded-full border border-border/70 bg-surface-2/60 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
           Backend source: /api/videos
         </span>
       </div>
@@ -186,10 +186,10 @@ export function MediaLibraryView() {
             <div className="min-w-0 space-y-4 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h2 className="truncate text-lg font-semibold text-text">
+                  <h2 className="u-clamp-2 text-lg font-semibold text-text">
                     {video.title}
                   </h2>
-                  <p className="mt-1 truncate text-sm text-text-muted">
+                  <p className="u-break-anywhere mt-1 text-sm text-text-muted">
                     {video.duration} • {video.size} • {video.format}
                   </p>
                 </div>
@@ -215,7 +215,7 @@ export function MediaLibraryView() {
                   <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-text-muted">
                     Source
                   </dt>
-                  <dd className="mt-1 truncate text-text">{video.videoUrl}</dd>
+                  <dd className="u-break-anywhere mt-1 text-text">{video.videoUrl}</dd>
                 </div>
               </dl>
             </div>

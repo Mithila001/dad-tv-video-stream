@@ -146,7 +146,7 @@ export function LiveQueuePanel({
               return (
                 <div
                   key={item.id}
-                  className="flex items-center gap-3 rounded-xl border border-border/70 bg-bg/70 p-3 hover:border-accent/35 transition-colors group"
+                  className="group flex min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-bg/70 p-3 transition-colors hover:border-accent/35"
                 >
                   <img
                     src={item.thumbnailUrl}
@@ -163,7 +163,7 @@ export function LiveQueuePanel({
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="shrink-0 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       type="button"
                       onClick={() => handleJump(item.id)}

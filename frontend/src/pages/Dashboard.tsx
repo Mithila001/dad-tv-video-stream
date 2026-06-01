@@ -59,7 +59,7 @@ export function Dashboard({ className }: DashboardProps) {
           <img
             src={logoText}
             alt="DAD Video"
-            className="h-12 w-auto max-w-[180px] object-contain"
+            className="h-12 w-auto max-w-45 object-contain"
           />
           <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
             Overview
@@ -71,7 +71,7 @@ export function Dashboard({ className }: DashboardProps) {
             Monitor the LobbyStream media pipeline, keep the live queue in
             order, and move assets through the admin workflow from one place.
           </p>
-          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+          <p className="u-break-anywhere mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
             Streaming Status: {connectionState === "connected" ? "Live" : connectionState} • {lastEvent}
           </p>
         </div>
@@ -82,11 +82,11 @@ export function Dashboard({ className }: DashboardProps) {
           </p>
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-4 overflow-hidden rounded-xl bg-surface-2/70 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-text">
+              <div className="min-w-0">
+                <p className="u-clamp-2 text-sm font-semibold text-text">
                   {activeVideo?.title ?? "No active stream"}
                 </p>
-                <p className="text-sm text-text-muted">
+                <p className="u-break-anywhere text-sm text-text-muted">
                   {streamSync
                     ? `Sync ${playbackLabel} • ${Math.floor(displayStreamSeconds / 60)}m ${Math.floor(displayStreamSeconds % 60)}s`
                     : "Waiting for stream sync"}
@@ -137,7 +137,7 @@ export function Dashboard({ className }: DashboardProps) {
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
                 Featured Asset
               </p>
-              <h2 className="mt-1 text-xl font-semibold text-text">
+              <h2 className="u-clamp-2 mt-1 text-xl font-semibold text-text">
                 {activeVideo?.title ?? "No active stream"}
               </h2>
             </div>
@@ -216,7 +216,7 @@ export function Dashboard({ className }: DashboardProps) {
                     <h3 className="truncate text-base font-semibold text-text">
                       {video.title}
                     </h3>
-                    <p className="text-sm text-text-muted">
+                    <p className="u-break-anywhere text-sm text-text-muted">
                       {video.duration} • {video.size} • {video.format}
                     </p>
                   </div>

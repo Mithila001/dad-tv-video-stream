@@ -112,13 +112,13 @@ export function Sidebar({ profile, navigation, className }: SidebarProps) {
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex items-center justify-between gap-3 text-text-muted">
             <dt>Department</dt>
-            <dd className="text-right text-text">
+            <dd className="u-nowrap-ellipsis max-w-40 text-right text-text">
               {profile.department ?? "Operations"}
             </dd>
           </div>
           <div className="flex items-center justify-between gap-3 text-text-muted">
             <dt>Email</dt>
-            <dd className="truncate text-right text-text">{profile.email}</dd>
+            <dd className="u-nowrap-ellipsis max-w-40 text-right text-text">{profile.email}</dd>
           </div>
         </dl>
       </section>

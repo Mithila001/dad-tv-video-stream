@@ -41,7 +41,7 @@ export function StatCard({
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
             {label}
           </p>
-          <p className="mt-3 text-2xl font-semibold text-text">{value}</p>
+          <p className="u-break-anywhere mt-3 text-2xl font-semibold text-text">{value}</p>
         </div>
 
         {Icon ? (
@@ -52,7 +52,7 @@ export function StatCard({
       </div>
 
       {description ? (
-        <p className="mt-2 text-sm leading-6 text-text-muted">{description}</p>
+        <p className="u-break-anywhere mt-2 text-sm leading-6 text-text-muted">{description}</p>
       ) : null}
 
       {status ? (
