@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Gauge, PencilLine, Trash2, Tv2 } from "lucide-react";
+import { Clock3, Gauge, Tv2 } from "lucide-react";
 import { LiveQueuePanel } from "../components/LiveQueuePanel";
-import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
-import logoText from "../assets/dad-video-logo-text.png";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface DashboardProps {
@@ -14,8 +12,6 @@ export function Dashboard({ className }: DashboardProps) {
   const { assets: videoLibrary, liveQueue, stream: streamSync, connectionState, lastEvent } =
     useSharedStreamSocket();
   const [displayStreamSeconds, setDisplayStreamSeconds] = useState(0);
-  const [editingVideo, setEditingVideo] = useState<{ id: string; title: string } | null>(null);
-  const [editTitle, setEditTitle] = useState("");
 
   const activeVideo = useMemo(() => {
     if (streamSync) {
@@ -45,79 +41,10 @@ export function Dashboard({ className }: DashboardProps) {
 
   const playbackLabel = streamSync?.isPlaying ? "Playing now" : "Paused";
 
-  const handleDelete = async (videoId: string, videoTitle: string) => {
-    if (!window.confirm(`Delete "${videoTitle}"? This cannot be undone.`)) return;
-    try {
-      const response = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Delete failed");
-      window.dispatchEvent(new Event("lobbystream:data-updated"));
-    } catch {
-      alert("Failed to delete video. Please try again.");
-    }
-  };
-
-  const handleEditSave = async () => {
-    if (!editingVideo) return;
-    try {
-      const response = await fetch(`/api/videos/${editingVideo.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: editTitle.trim() }),
-      });
-      if (!response.ok) throw new Error("Edit failed");
-      window.dispatchEvent(new Event("lobbystream:data-updated"));
-      setEditingVideo(null);
-    } catch {
-      alert("Failed to update video title. Please try again.");
-    }
-  };
-
   return (
     <div className={["space-y-6", className].filter(Boolean).join(" ")}>
-      {/* Edit Modal */}
-      {editingVideo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
-            <h2 className="text-xl font-semibold text-text">Edit Video Title</h2>
-            <p className="mt-1 text-sm text-text-muted">Update the title for this asset.</p>
-            <input
-              type="text"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="mt-4 w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-              placeholder="Enter new title"
-            />
-            <div className="mt-4 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setEditingVideo(null)}
-                className="rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold text-text transition hover:border-accent/50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleEditSave}
-                disabled={!editTitle.trim()}
-                className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-strong disabled:opacity-50"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-          <img
-            src={logoText}
-            alt="DAD Video"
-            className="h-12 w-auto max-w-45 object-contain"
-          />
-          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
-            Overview
-          </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text md:text-4xl">
             Dashboard
           </h1>
@@ -230,107 +157,6 @@ export function Dashboard({ className }: DashboardProps) {
         </article>
 
         <LiveQueuePanel streamVariant="console" className="p-5" />
-      </section>
-
-      <section className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-              Video Asset Cards
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-text">
-              Manage uploads and editorial actions
-            </h2>
-          </div>
-          <p className="text-sm text-text-muted">
-            Edit/delete is reserved for Network Operators.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {videoLibrary.slice(0, 3).map((video) => (
-            <article
-              key={video.id}
-              className="overflow-hidden rounded-2xl border border-border/70 bg-bg/80"
-            >
-              <img
-                src={video.thumbnailUrl}
-                alt={video.title}
-                className="h-40 w-full object-cover"
-              />
-              <div className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold text-text">
-                      {video.title}
-                    </h3>
-                    <p className="u-break-anywhere text-sm text-text-muted">
-                      {video.duration} • {video.size} • {video.format}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-strong ring-1 ring-accent/25">
-                    {video.uploadDate}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <RoleGate
-                    allowedRoles={["Network Operator"]}
-                    mode="disable"
-                    fallback={
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text-muted opacity-60"
-                        aria-label={`Edit ${video.title} requires Network Operator access`}
-                      >
-                        <PencilLine className="h-4 w-4" aria-hidden="true" />
-                        Edit
-                      </button>
-                    }
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingVideo({ id: video.id, title: video.title });
-                        setEditTitle(video.title);
-                      }}
-                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-                    >
-                      <PencilLine className="h-4 w-4" aria-hidden="true" />
-                      Edit
-                    </button>
-                  </RoleGate>
-
-                  <RoleGate
-                    allowedRoles={["Network Operator"]}
-                    mode="disable"
-                    fallback={
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text-muted opacity-60"
-                        aria-label={`Delete ${video.title} requires Network Operator access`}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete
-                      </button>
-                    }
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(video.id, video.title)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-danger/35 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger transition hover:border-danger/50 hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Delete
-                    </button>
-                  </RoleGate>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
       </section>
     </div>
   );
