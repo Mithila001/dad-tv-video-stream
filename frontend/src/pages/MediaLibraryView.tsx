@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useOutletContext } from "react-router-dom";
 import { Grid2X2, List, Search, SlidersHorizontal } from "lucide-react";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
@@ -8,6 +9,17 @@ type SortMode = "newest" | "oldest" | "title";
 export function MediaLibraryView() {
   const { assets: videos, connectionState } = useSharedStreamSocket();
   const [search, setSearch] = useState("");
+  const { searchValue, onSearchChange } = useOutletContext<{
+    searchValue?: string;
+    onSearchChange?: (v: string) => void;
+  }>() ?? {};
+
+  useEffect(() => {
+    if (searchValue !== undefined) {
+      setSearch(searchValue);
+    }
+  }, [searchValue]);
+
   const [format, setFormat] = useState<"all" | "MP4" | "MOV">("all");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [sortMode, setSortMode] = useState<SortMode>("newest");
@@ -113,7 +125,11 @@ export function MediaLibraryView() {
             <input
               type="search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                const v = event.target.value;
+                setSearch(v);
+                onSearchChange?.(v);
+              }}
               placeholder="Filter by title, size, duration, or date"
               className="w-full rounded-xl border border-border bg-bg/80 py-3 pl-10 pr-4 text-sm text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
             />

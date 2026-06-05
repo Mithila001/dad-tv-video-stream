@@ -14,6 +14,8 @@ export function Dashboard({ className }: DashboardProps) {
   const { assets: videoLibrary, liveQueue, stream: streamSync, connectionState, lastEvent } =
     useSharedStreamSocket();
   const [displayStreamSeconds, setDisplayStreamSeconds] = useState(0);
+  const [editingVideo, setEditingVideo] = useState<{ id: string; title: string } | null>(null);
+  const [editTitle, setEditTitle] = useState("");
 
   const activeVideo = useMemo(() => {
     if (streamSync) {
@@ -23,7 +25,6 @@ export function Dashboard({ className }: DashboardProps) {
         null
       );
     }
-
     return videoLibrary[0] ?? null;
   }, [streamSync, videoLibrary]);
 
@@ -32,28 +33,81 @@ export function Dashboard({ className }: DashboardProps) {
       setDisplayStreamSeconds(0);
       return;
     }
-
     setDisplayStreamSeconds(streamSync.currentTime);
-
-    if (!streamSync.isPlaying) {
-      return;
-    }
-
+    if (!streamSync.isPlaying) return;
     const ticker = window.setInterval(() => {
       setDisplayStreamSeconds((previous) =>
         Math.min(streamSync.durationSeconds, previous + 1),
       );
     }, 1000);
-
-    return () => {
-      window.clearInterval(ticker);
-    };
+    return () => window.clearInterval(ticker);
   }, [streamSync]);
 
   const playbackLabel = streamSync?.isPlaying ? "Playing now" : "Paused";
 
+  const handleDelete = async (videoId: string, videoTitle: string) => {
+    if (!window.confirm(`Delete "${videoTitle}"? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(`/api/videos/${videoId}`, { method: "DELETE" });
+      if (!response.ok) throw new Error("Delete failed");
+      window.dispatchEvent(new Event("lobbystream:data-updated"));
+    } catch {
+      alert("Failed to delete video. Please try again.");
+    }
+  };
+
+  const handleEditSave = async () => {
+    if (!editingVideo) return;
+    try {
+      const response = await fetch(`/api/videos/${editingVideo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle.trim() }),
+      });
+      if (!response.ok) throw new Error("Edit failed");
+      window.dispatchEvent(new Event("lobbystream:data-updated"));
+      setEditingVideo(null);
+    } catch {
+      alert("Failed to update video title. Please try again.");
+    }
+  };
+
   return (
     <div className={["space-y-6", className].filter(Boolean).join(" ")}>
+      {/* Edit Modal */}
+      {editingVideo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+            <h2 className="text-xl font-semibold text-text">Edit Video Title</h2>
+            <p className="mt-1 text-sm text-text-muted">Update the title for this asset.</p>
+            <input
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="mt-4 w-full rounded-xl border border-border bg-bg px-4 py-3 text-sm text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+              placeholder="Enter new title"
+            />
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditingVideo(null)}
+                className="rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold text-text transition hover:border-accent/50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleEditSave}
+                disabled={!editTitle.trim()}
+                className="rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-strong disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
           <img
@@ -96,7 +150,6 @@ export function Dashboard({ className }: DashboardProps) {
                 {playbackLabel}
               </span>
             </div>
-
             <div className="rounded-xl border border-border/70 bg-bg/70 px-4 py-3">
               <p className="text-sm font-semibold text-text">Live queue</p>
               <p className="mt-1 text-sm text-text-muted">
@@ -165,9 +218,7 @@ export function Dashboard({ className }: DashboardProps) {
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
                 Duration
               </dt>
-              <dd className="mt-1 text-text">
-                {activeVideo?.duration ?? "—"}
-              </dd>
+              <dd className="mt-1 text-text">{activeVideo?.duration ?? "—"}</dd>
             </div>
             <div className="rounded-xl bg-surface-2/60 px-4 py-3">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -178,10 +229,7 @@ export function Dashboard({ className }: DashboardProps) {
           </dl>
         </article>
 
-        <LiveQueuePanel
-          streamVariant="console"
-          className="p-5"
-        />
+        <LiveQueuePanel streamVariant="console" className="p-5" />
       </section>
 
       <section className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
@@ -243,6 +291,10 @@ export function Dashboard({ className }: DashboardProps) {
                   >
                     <button
                       type="button"
+                      onClick={() => {
+                        setEditingVideo({ id: video.id, title: video.title });
+                        setEditTitle(video.title);
+                      }}
                       className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
                     >
                       <PencilLine className="h-4 w-4" aria-hidden="true" />
@@ -267,6 +319,7 @@ export function Dashboard({ className }: DashboardProps) {
                   >
                     <button
                       type="button"
+                      onClick={() => handleDelete(video.id, video.title)}
                       className="inline-flex items-center gap-2 rounded-xl border border-danger/35 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger transition hover:border-danger/50 hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
                     >
                       <Trash2 className="h-4 w-4" aria-hidden="true" />

@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode, useState, useMemo } from "react";
 import { Upload } from "lucide-react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 import {
   defaultSidebarNavigation,
   defaultSidebarProfile,
@@ -23,6 +23,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isUploading, setIsUploading] = useState(false);
   const { currentUser, login, logout } = useAuth();
   const { assets } = useSharedStreamSocket();
+  const navigate = useNavigate();
 
   const navigation = useMemo(() => {
     return defaultSidebarNavigation.map((item) =>
@@ -33,16 +34,17 @@ export function AppShell({ children }: AppShellProps) {
   }, [assets]);
 
   useEffect(() => {
-    const openUploadModal = () => {
-      setIsUploadModalOpen(true);
-    };
-
+    const openUploadModal = () => setIsUploadModalOpen(true);
     window.addEventListener("lobbystream:open-upload", openUploadModal);
-
-    return () => {
-      window.removeEventListener("lobbystream:open-upload", openUploadModal);
-    };
+    return () => window.removeEventListener("lobbystream:open-upload", openUploadModal);
   }, []);
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    if (value.trim()) {
+      navigate("/library");
+    }
+  };
 
   const sidebarProfile = currentUser
     ? {
@@ -57,7 +59,6 @@ export function AppShell({ children }: AppShellProps) {
 
   async function handleUpload(payload: UploadVideoPayload) {
     setIsUploading(true);
-
     try {
       await uploadVideoAsset(payload);
       window.dispatchEvent(new Event("lobbystream:data-updated"));
@@ -83,7 +84,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="flex min-h-screen flex-1 flex-col">
           <TopBar
             searchValue={searchValue}
-            onSearchChange={setSearchValue}
+            onSearchChange={handleSearchChange}
             uploadActionSlot={
               <RoleGate
                 requiredRole="Network Operator"
@@ -110,7 +111,7 @@ export function AppShell({ children }: AppShellProps) {
                 </button>
               </RoleGate>
             }
-            notificationCount={4}
+            notificationCount={0}
             onNotificationsClick={() => undefined}
             profileActionLabel={profileActionLabel}
             onProfileClick={() => {
@@ -118,13 +119,12 @@ export function AppShell({ children }: AppShellProps) {
                 logout();
                 return;
               }
-
               login(defaultUser);
             }}
           />
 
           <main className="flex-1 overflow-auto bg-linear-to-b from-bg via-bg to-surface/40 px-4 py-5 sm:px-6 lg:px-8">
-            {children ?? <Outlet />}
+            <Outlet context={{ searchValue, onSearchChange: handleSearchChange }} />
           </main>
         </div>
       </div>

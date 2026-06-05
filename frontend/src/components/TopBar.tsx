@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Bell, Search, SlidersHorizontal, UserCircle2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { Search, SlidersHorizontal, UserCircle2, X } from "lucide-react";
 
 export interface TopBarProps {
   readonly searchValue: string;
@@ -16,12 +16,14 @@ export function TopBar({
   searchValue,
   onSearchChange,
   uploadActionSlot,
-  notificationCount,
-  onNotificationsClick,
+  notificationCount: _notificationCount,
+  onNotificationsClick: _onNotificationsClick,
   onProfileClick,
   profileActionLabel = "Profile",
   className,
 }: TopBarProps) {
+  const [showFilters, setShowFilters] = useState(false);
+
   return (
     <header
       className={[
@@ -43,10 +45,7 @@ export function TopBar({
       </div>
 
       <div className="flex w-full flex-col gap-3 md:w-auto md:flex-1 md:flex-row md:items-center md:justify-end">
-        <label
-          className="relative w-full md:max-w-md"
-          htmlFor="lobbystream-search"
-        >
+        <label className="relative w-full md:max-w-md" htmlFor="lobbystream-search">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
             aria-hidden="true"
@@ -62,29 +61,74 @@ export function TopBar({
         </label>
 
         <div className="flex flex-wrap items-center justify-end gap-2 self-end md:self-auto">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            aria-label="Open filters"
-          >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Filters
-          </button>
+          {/* Filters button */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowFilters((prev) => !prev)}
+              className={[
+                "inline-flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
+                showFilters
+                  ? "border-accent/40 bg-accent/10 text-text ring-1 ring-accent/25"
+                  : "border-border bg-surface-2 text-text hover:border-accent/50",
+              ].join(" ")}
+              aria-label="Open filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
+              Filters
+            </button>
+
+            {showFilters && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-4 shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
+                    Filters
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(false)}
+                    className="rounded-lg p-1 text-text-muted hover:text-text"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-text-muted mb-1">
+                      Format
+                    </label>
+                    <select className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent">
+                      <option>All formats</option>
+                      <option>MP4</option>
+                      <option>MOV</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-text-muted mb-1">
+                      Sort by
+                    </label>
+                    <select className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent">
+                      <option>Newest first</option>
+                      <option>Oldest first</option>
+                      <option>Title A–Z</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-text-muted mb-1">
+                      Status
+                    </label>
+                    <select className="w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-text outline-none focus:border-accent">
+                      <option>All</option>
+                      <option>Playing</option>
+                      <option>Queued</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {uploadActionSlot}
-
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            className="relative inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            aria-label={`Notifications (${notificationCount})`}
-          >
-            <Bell className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Notifications</span>
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-bg">
-              {notificationCount}
-            </span>
-          </button>
 
           <button
             type="button"
