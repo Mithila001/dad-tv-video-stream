@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { PlaySquare, Plus, Trash2, ArrowUp, ArrowDown, Search, CheckSquare, ListPlus, AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { PlaySquare, Plus, Trash2, ArrowUp, ArrowDown, Search, CheckSquare, ListPlus, AlertTriangle, CheckCircle2, X, PencilLine, Check } from "lucide-react";
 import type { VideoAsset } from "../services/api";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
@@ -23,6 +23,8 @@ export function PlaylistsView() {
   const [search, setSearch] = useState("");
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const showToast = (message: string, type: "success" | "error") => {
     const id = `toast-${Date.now()}`;
@@ -113,6 +115,31 @@ export function PlaylistsView() {
 
   const handleDeletePlaylist = (playlistId: string) => {
     savePlaylistsToStorage(playlists.filter((p) => p.id !== playlistId));
+    showToast("Playlist deleted.", "success");
+  };
+
+  const handleStartRename = (playlist: Playlist) => {
+    setRenamingId(playlist.id);
+    setRenameValue(playlist.name);
+  };
+
+  const handleRenameConfirm = (playlistId: string) => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      setRenamingId(null);
+      return;
+    }
+    const updated = playlists.map((p) =>
+      p.id === playlistId ? { ...p, name: trimmed } : p
+    );
+    savePlaylistsToStorage(updated);
+    setRenamingId(null);
+    showToast(`Playlist renamed to "${trimmed}"!`, "success");
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingId(null);
+    setRenameValue("");
   };
 
   const handlePlayPlaylist = async (playlist: Playlist) => {
@@ -373,6 +400,7 @@ export function PlaylistsView() {
               const playlistVids = getPlaylistVideos(playlist);
               const hasValidAssets = playlistVids.length > 0;
               const isPlaying = playingId === playlist.id;
+              const isRenaming = renamingId === playlist.id;
 
               return (
                 <article
@@ -380,22 +408,67 @@ export function PlaylistsView() {
                   className="rounded-2xl border border-border/80 bg-bg/40 p-4 space-y-3 hover:border-accent/35 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="u-clamp-2 font-semibold text-text text-base">
-                        {playlist.name}
-                      </h3>
-                      <p className="text-xs text-text-muted">
+                    <div className="min-w-0 flex-1">
+                      {isRenaming ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={renameValue}
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameConfirm(playlist.id);
+                              if (e.key === "Escape") handleRenameCancel();
+                            }}
+                            autoFocus
+                            className="flex-1 rounded-lg border border-accent/50 bg-bg px-3 py-1.5 text-sm font-semibold text-text outline-none focus:ring-2 focus:ring-accent/30"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenameConfirm(playlist.id)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-success/15 text-success hover:bg-success/25"
+                            title="Confirm rename"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleRenameCancel}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-surface-2 text-text-muted hover:text-text"
+                            title="Cancel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <h3 className="u-clamp-2 font-semibold text-text text-base">
+                          {playlist.name}
+                        </h3>
+                      )}
+                      <p className="text-xs text-text-muted mt-0.5">
                         {playlist.assetIds.length} assets • {playlistVids.length} available
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePlaylist(playlist.id)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                      title="Delete playlist"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+
+                    {!isRenaming && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleStartRename(playlist)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-accent/10 hover:text-accent-strong transition-colors"
+                          title="Rename playlist"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePlaylist(playlist.id)}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors"
+                          title="Delete playlist"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {!hasValidAssets && (
