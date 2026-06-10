@@ -1,3 +1,4 @@
+import logoImg from "../assets/dad-video-logo.png";
 import type { LucideIcon } from "lucide-react";
 import {
   Layers3,
@@ -5,7 +6,6 @@ import {
   PlaySquare,
   Settings,
   Tv2,
-  Upload,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
@@ -67,7 +67,7 @@ export const defaultSidebarNavigation: ReadonlyArray<SidebarNavigationItem> = [
   },
 ];
 
-export function Sidebar({ profile, navigation, className }: SidebarProps) {
+export function Sidebar({ navigation, className }: SidebarProps) {
   return (
     <aside
       className={[
@@ -77,53 +77,23 @@ export function Sidebar({ profile, navigation, className }: SidebarProps) {
         .filter(Boolean)
         .join(" ")}
     >
-      <div className="flex items-center gap-3 pb-7">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/15 text-accent-strong ring-1 ring-accent/30">
-          <Upload className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
-            LobbyStream
-          </p>
-          <p className="m-0 text-sm font-semibold leading-tight text-text sm:text-base">
-            Video Management
-          </p>
-        </div>
-      </div>
+<NavLink to="/dashboard" className="flex items-center gap-3 pb-7 hover:opacity-80 transition-opacity">
+  <img
+    src={logoImg}
+    alt="LobbyStream"
+    className="h-10 w-auto object-contain"
+  />
+  <div className="min-w-0">
+    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-text-muted">
+      LobbyStream
+    </p>
+    <p className="m-0 text-sm font-semibold leading-tight text-text sm:text-base">
+      Video Management
+    </p>
+  </div>
+</NavLink>
 
-      <section className="rounded-2xl border border-border/80 bg-surface-2/60 p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-          Active Profile
-        </p>
-        <div className="mt-3 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/15 text-sm font-semibold text-accent-strong ring-1 ring-accent/25">
-            {profile.name
-              .split(" ")
-              .map((part) => part[0])
-              .join("")}
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-text">
-              {profile.name}
-            </p>
-            <p className="truncate text-sm text-text-muted">{profile.role}</p>
-          </div>
-        </div>
-        <dl className="mt-4 space-y-2 text-sm">
-          <div className="flex items-center justify-between gap-3 text-text-muted">
-            <dt>Department</dt>
-            <dd className="u-nowrap-ellipsis max-w-40 text-right text-text">
-              {profile.department ?? "Operations"}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between gap-3 text-text-muted">
-            <dt>Email</dt>
-            <dd className="u-nowrap-ellipsis max-w-40 text-right text-text">{profile.email}</dd>
-          </div>
-        </dl>
-      </section>
-
-      <nav className="mt-6 flex-1 space-y-6" aria-label="Primary navigation">
+      <nav className="mt-2 flex-1 space-y-6" aria-label="Primary navigation">
         <div>
           <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
             Navigation

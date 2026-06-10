@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, Gauge, PencilLine, Trash2, Tv2 } from "lucide-react";
+import { Clock3, Gauge, Tv2 } from "lucide-react";
 import { LiveQueuePanel } from "../components/LiveQueuePanel";
-import { RoleGate } from "../components/RoleGate";
 import { StatCard } from "../components/StatCard";
-import logoText from "../assets/dad-video-logo-text.png";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 export interface DashboardProps {
@@ -23,7 +21,6 @@ export function Dashboard({ className }: DashboardProps) {
         null
       );
     }
-
     return videoLibrary[0] ?? null;
   }, [streamSync, videoLibrary]);
 
@@ -32,22 +29,14 @@ export function Dashboard({ className }: DashboardProps) {
       setDisplayStreamSeconds(0);
       return;
     }
-
     setDisplayStreamSeconds(streamSync.currentTime);
-
-    if (!streamSync.isPlaying) {
-      return;
-    }
-
+    if (!streamSync.isPlaying) return;
     const ticker = window.setInterval(() => {
       setDisplayStreamSeconds((previous) =>
         Math.min(streamSync.durationSeconds, previous + 1),
       );
     }, 1000);
-
-    return () => {
-      window.clearInterval(ticker);
-    };
+    return () => window.clearInterval(ticker);
   }, [streamSync]);
 
   const playbackLabel = streamSync?.isPlaying ? "Playing now" : "Paused";
@@ -56,14 +45,6 @@ export function Dashboard({ className }: DashboardProps) {
     <div className={["space-y-6", className].filter(Boolean).join(" ")}>
       <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
         <div className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-          <img
-            src={logoText}
-            alt="DAD Video"
-            className="h-12 w-auto max-w-45 object-contain"
-          />
-          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-text-muted">
-            Overview
-          </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-text md:text-4xl">
             Dashboard
           </h1>
@@ -96,7 +77,6 @@ export function Dashboard({ className }: DashboardProps) {
                 {playbackLabel}
               </span>
             </div>
-
             <div className="rounded-xl border border-border/70 bg-bg/70 px-4 py-3">
               <p className="text-sm font-semibold text-text">Live queue</p>
               <p className="mt-1 text-sm text-text-muted">
@@ -165,9 +145,7 @@ export function Dashboard({ className }: DashboardProps) {
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
                 Duration
               </dt>
-              <dd className="mt-1 text-text">
-                {activeVideo?.duration ?? "—"}
-              </dd>
+              <dd className="mt-1 text-text">{activeVideo?.duration ?? "—"}</dd>
             </div>
             <div className="rounded-xl bg-surface-2/60 px-4 py-3">
               <dt className="text-xs font-semibold uppercase tracking-[0.18em] text-text-muted">
@@ -178,106 +156,7 @@ export function Dashboard({ className }: DashboardProps) {
           </dl>
         </article>
 
-        <LiveQueuePanel
-          streamVariant="console"
-          className="p-5"
-        />
-      </section>
-
-      <section className="rounded-2xl border border-border bg-surface/90 p-6 shadow-panel">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-              Video Asset Cards
-            </p>
-            <h2 className="mt-1 text-xl font-semibold text-text">
-              Manage uploads and editorial actions
-            </h2>
-          </div>
-          <p className="text-sm text-text-muted">
-            Edit/delete is reserved for Network Operators.
-          </p>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {videoLibrary.slice(0, 3).map((video) => (
-            <article
-              key={video.id}
-              className="overflow-hidden rounded-2xl border border-border/70 bg-bg/80"
-            >
-              <img
-                src={video.thumbnailUrl}
-                alt={video.title}
-                className="h-40 w-full object-cover"
-              />
-              <div className="space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-base font-semibold text-text">
-                      {video.title}
-                    </h3>
-                    <p className="u-break-anywhere text-sm text-text-muted">
-                      {video.duration} • {video.size} • {video.format}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-accent/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-strong ring-1 ring-accent/25">
-                    {video.uploadDate}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <RoleGate
-                    allowedRoles={["Network Operator"]}
-                    mode="disable"
-                    fallback={
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text-muted opacity-60"
-                        aria-label={`Edit ${video.title} requires Network Operator access`}
-                      >
-                        <PencilLine className="h-4 w-4" aria-hidden="true" />
-                        Edit
-                      </button>
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-                    >
-                      <PencilLine className="h-4 w-4" aria-hidden="true" />
-                      Edit
-                    </button>
-                  </RoleGate>
-
-                  <RoleGate
-                    allowedRoles={["Network Operator"]}
-                    mode="disable"
-                    fallback={
-                      <button
-                        type="button"
-                        disabled
-                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-2 text-sm font-semibold text-text-muted opacity-60"
-                        aria-label={`Delete ${video.title} requires Network Operator access`}
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Delete
-                      </button>
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="inline-flex items-center gap-2 rounded-xl border border-danger/35 bg-danger/10 px-3 py-2 text-sm font-semibold text-danger transition hover:border-danger/50 hover:bg-danger/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      Delete
-                    </button>
-                  </RoleGate>
-                </div>
-              </div>
-            </article>
-          ))}
-        </div>
+        <LiveQueuePanel streamVariant="console" className="p-5" />
       </section>
     </div>
   );

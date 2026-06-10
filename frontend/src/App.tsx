@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { StreamSocketProvider } from "./context/StreamSocketContext";
 import { Dashboard } from "./pages/Dashboard";
 import { Login } from "./pages/Login";
+import { LiveQueueView } from "./pages/LiveQueueView";
 import { MediaLibraryView } from "./pages/MediaLibraryView";
 import { PlaylistsView } from "./pages/PlaylistsView";
 import { SettingsView } from "./pages/SettingsView";
@@ -51,7 +52,7 @@ function AppRouter() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="library" element={<MediaLibraryView />} />
         <Route path="playlists" element={<PlaylistsView />} />
-        <Route path="live" element={<Dashboard />} />
+        <Route path="live" element={<LiveQueueView />} />
         <Route path="settings" element={<SettingsView />} />
       </Route>
       <Route

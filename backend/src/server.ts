@@ -374,6 +374,82 @@ app.get("/api/videos", (_request, response) => {
   response.json(availableAssets);
 });
 
+app.patch("/api/videos/:id", (request, response) => {
+  const { id } = request.params;
+  const { title } = request.body as { title?: string };
+
+  if (!title || !title.trim()) {
+    response.status(400).json({ message: "Title is required" });
+    return;
+  }
+
+  const index = availableAssets.findIndex((v) => v.id === id);
+  if (index === -1) {
+    response.status(404).json({ message: "Video not found" });
+    return;
+  }
+
+  const updated = { ...availableAssets[index], title: title.trim() };
+  availableAssets[index] = updated;
+  persistVideoLibrary(availableAssets);
+
+  liveQueue = liveQueue.map((item) =>
+    item.asset.id === id
+      ? { ...item, asset: updated }
+      : item
+  );
+
+  broadcastToAllClients({
+    type: "INITIAL_STATE",
+    stream: buildSyncPayload(),
+    assets: availableAssets,
+    liveQueue: buildLiveQueue(),
+  });
+
+  response.json({ video: updated });
+});
+
+app.delete("/api/videos/:id", (request, response) => {
+  const { id } = request.params;
+
+  const index = availableAssets.findIndex((v) => v.id === id);
+  if (index === -1) {
+    response.status(404).json({ message: "Video not found" });
+    return;
+  }
+
+  const video = availableAssets[index];
+
+  availableAssets.splice(index, 1);
+  persistVideoLibrary(availableAssets);
+
+  liveQueue = liveQueue.filter((item) => item.asset.id !== id);
+
+  if (streamState.currentIndex >= liveQueue.length) {
+    streamState.currentIndex = Math.max(0, liveQueue.length - 1);
+  }
+
+  syncStreamStateToPlaylist();
+
+  try {
+    const videoPath = path.join(videosDir, path.basename(video.videoUrl));
+    if (fs.existsSync(videoPath)) fs.unlinkSync(videoPath);
+    const thumbPath = path.join(thumbsDir, path.basename(video.thumbnailUrl));
+    if (fs.existsSync(thumbPath)) fs.unlinkSync(thumbPath);
+  } catch {
+    // File cleanup failed silently
+  }
+
+  broadcastToAllClients({
+    type: "INITIAL_STATE",
+    stream: buildSyncPayload(),
+    assets: availableAssets,
+    liveQueue: buildLiveQueue(),
+  });
+
+  response.json({ success: true });
+});
+
 app.get("/api/queue", (_request, response) => {
   response.json(buildLiveQueue());
 });

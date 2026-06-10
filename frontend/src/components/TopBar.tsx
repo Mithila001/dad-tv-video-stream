@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { Bell, Search, SlidersHorizontal, UserCircle2 } from "lucide-react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
+import { Settings, LogOut, ChevronDown } from "lucide-react";import { useNavigate } from "react-router-dom";
 
 export interface TopBarProps {
   readonly searchValue: string;
@@ -9,19 +9,46 @@ export interface TopBarProps {
   readonly onNotificationsClick: () => void;
   readonly onProfileClick?: () => void;
   readonly profileActionLabel?: string;
+  readonly profileName?: string;
+  readonly profileRole?: string;
+  readonly profileEmail?: string;
   readonly className?: string;
 }
 
 export function TopBar({
-  searchValue,
-  onSearchChange,
-  uploadActionSlot,
-  notificationCount,
-  onNotificationsClick,
+  searchValue: _searchValue,
+  onSearchChange: _onSearchChange,
+  uploadActionSlot: _uploadActionSlot,
+  notificationCount: _notificationCount,
+  onNotificationsClick: _onNotificationsClick,
   onProfileClick,
-  profileActionLabel = "Profile",
+  profileActionLabel = "Logout",
+  profileName = "Admin",
+  profileRole = "Network Operator",
+  profileEmail = "admin@lobbystream.tv",
   className,
 }: TopBarProps) {
+  const [showProfile, setShowProfile] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowProfile(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const initials = profileName
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
   return (
     <header
       className={[
@@ -42,59 +69,68 @@ export function TopBar({
         </div>
       </div>
 
-      <div className="flex w-full flex-col gap-3 md:w-auto md:flex-1 md:flex-row md:items-center md:justify-end">
-        <label
-          className="relative w-full md:max-w-md"
-          htmlFor="lobbystream-search"
-        >
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
-            aria-hidden="true"
-          />
-          <input
-            id="lobbystream-search"
-            type="search"
-            value={searchValue}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder="Search videos, streams, or metadata"
-            className="w-full rounded-xl border border-border bg-bg/80 py-3 pl-10 pr-4 text-sm text-text placeholder:text-text-muted shadow-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
-          />
-        </label>
-
-        <div className="flex flex-wrap items-center justify-end gap-2 self-end md:self-auto">
+      <div className="flex items-center gap-2">
+        {/* Profile dropdown */}
+        <div className="relative" ref={dropdownRef}>
           <button
             type="button"
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            aria-label="Open filters"
+            onClick={() => setShowProfile((prev) => !prev)}
+            className={[
+              "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
+              showProfile
+                ? "border-accent/40 bg-accent/10 text-text ring-1 ring-accent/25"
+                : "border-border bg-surface-2 text-text hover:border-accent/50",
+            ].join(" ")}
           >
-            <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-            Filters
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-accent/20 text-xs font-bold text-accent-strong">
+              {initials}
+            </div>
+            <span className="hidden sm:inline">{profileName}</span>
+            <ChevronDown className={["h-3.5 w-3.5 transition-transform", showProfile ? "rotate-180" : ""].join(" ")} />
           </button>
 
-          {uploadActionSlot}
+          {showProfile && (
+            <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-2 shadow-[0_8px_32px_rgba(0,0,0,0.25)]">
+              {/* Profile info */}
+              <div className="px-3 py-3 border-b border-border/60 mb-1">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/20 text-sm font-bold text-accent-strong ring-1 ring-accent/25">
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-text">{profileName}</p>
+                    <p className="truncate text-xs text-text-muted">{profileRole}</p>
+                    <p className="truncate text-xs text-text-muted">{profileEmail}</p>
+                  </div>
+                </div>
+              </div>
 
-          <button
-            type="button"
-            onClick={onNotificationsClick}
-            className="relative inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            aria-label={`Notifications (${notificationCount})`}
-          >
-            <Bell className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">Notifications</span>
-            <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-bg">
-              {notificationCount}
-            </span>
-          </button>
+              {/* Menu items */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfile(false);
+                  navigate("/settings");
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-text-muted hover:bg-surface-2 hover:text-text transition-colors"
+              >
+                <Settings className="h-4 w-4" />
+                Settings
+              </button>
 
-          <button
-            type="button"
-            onClick={onProfileClick}
-            className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-3 py-3 text-sm font-semibold text-text transition hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-            aria-label={profileActionLabel}
-          >
-            <UserCircle2 className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">{profileActionLabel}</span>
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowProfile(false);
+                  onProfileClick?.();
+                }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-danger hover:bg-danger/10 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                {profileActionLabel}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

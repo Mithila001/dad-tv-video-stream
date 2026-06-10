@@ -1,24 +1,19 @@
-import { useEffect, type ReactNode, useState, useMemo } from "react";
-import { Upload } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
 import { Outlet } from "react-router-dom";
 import {
   defaultSidebarNavigation,
   defaultSidebarProfile,
   Sidebar,
 } from "./Sidebar";
-import { UploadVideoModal } from "./UploadVideoModal";
 import { TopBar } from "./TopBar";
-import { RoleGate } from "./RoleGate";
+import { UploadVideoModal } from "./UploadVideoModal";
 import { defaultUser, useAuth } from "../context/AuthContext";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 import { uploadVideoAsset, type UploadVideoPayload } from "../services/api";
 
-export interface AppShellProps {
-  readonly children?: ReactNode;
-}
+export interface AppShellProps {}
 
-export function AppShell({ children }: AppShellProps) {
-  const [searchValue, setSearchValue] = useState("");
+export function AppShell({}: AppShellProps) {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const { currentUser, login, logout } = useAuth();
@@ -33,15 +28,9 @@ export function AppShell({ children }: AppShellProps) {
   }, [assets]);
 
   useEffect(() => {
-    const openUploadModal = () => {
-      setIsUploadModalOpen(true);
-    };
-
+    const openUploadModal = () => setIsUploadModalOpen(true);
     window.addEventListener("lobbystream:open-upload", openUploadModal);
-
-    return () => {
-      window.removeEventListener("lobbystream:open-upload", openUploadModal);
-    };
+    return () => window.removeEventListener("lobbystream:open-upload", openUploadModal);
   }, []);
 
   const sidebarProfile = currentUser
@@ -57,7 +46,6 @@ export function AppShell({ children }: AppShellProps) {
 
   async function handleUpload(payload: UploadVideoPayload) {
     setIsUploading(true);
-
     try {
       await uploadVideoAsset(payload);
       window.dispatchEvent(new Event("lobbystream:data-updated"));
@@ -82,49 +70,26 @@ export function AppShell({ children }: AppShellProps) {
 
         <div className="flex min-h-screen flex-1 flex-col">
           <TopBar
-            searchValue={searchValue}
-            onSearchChange={setSearchValue}
-            uploadActionSlot={
-              <RoleGate
-                requiredRole="Network Operator"
-                mode="disable"
-                fallback={
-                  <button
-                    type="button"
-                    className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm font-semibold text-text-muted opacity-60"
-                    disabled
-                    aria-label="Upload Video requires Network Operator access"
-                  >
-                    <Upload className="h-4 w-4" aria-hidden="true" />
-                    Upload Video
-                  </button>
-                }
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-                >
-                  <Upload className="h-4 w-4" aria-hidden="true" />
-                  Upload Video
-                </button>
-              </RoleGate>
-            }
-            notificationCount={4}
+            searchValue=""
+            onSearchChange={() => undefined}
+            uploadActionSlot={null}
+            notificationCount={0}
             onNotificationsClick={() => undefined}
+            profileName={currentUser?.username ?? "Admin"}
+            profileRole={currentUser?.role ?? "Network Operator"}
+            profileEmail={currentUser?.email ?? ""}
             profileActionLabel={profileActionLabel}
             onProfileClick={() => {
               if (currentUser) {
                 logout();
                 return;
               }
-
               login(defaultUser);
             }}
           />
 
           <main className="flex-1 overflow-auto bg-linear-to-b from-bg via-bg to-surface/40 px-4 py-5 sm:px-6 lg:px-8">
-            {children ?? <Outlet />}
+            <Outlet />
           </main>
         </div>
       </div>
