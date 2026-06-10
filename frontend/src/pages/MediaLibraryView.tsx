@@ -1,10 +1,16 @@
 import { useMemo, useState, useEffect } from "react";
 import { useOutletContext } from "react-router-dom";
-import { Grid2X2, List, Search, SlidersHorizontal, ListPlus, Check, PencilLine, Trash2 } from "lucide-react";
+import { Grid2X2, List, Search, SlidersHorizontal, ListPlus, Check, PencilLine, Trash2, FolderPlus, ChevronDown, Plus } from "lucide-react";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
 type ViewMode = "grid" | "list";
 type SortMode = "newest" | "oldest" | "title";
+
+interface MinimalPlaylist {
+  readonly id: string;
+  readonly name: string;
+  readonly assetIds: ReadonlyArray<string>;
+}
 
 export function MediaLibraryView() {
   const { assets: videos, connectionState, appendPlaylist } = useSharedStreamSocket();
@@ -12,6 +18,75 @@ export function MediaLibraryView() {
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
   const [editingVideo, setEditingVideo] = useState<{ id: string; title: string } | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [activePlaylistPicker, setActivePlaylistPicker] = useState<string | null>(null);
+  const [playlists, setPlaylists] = useState<ReadonlyArray<MinimalPlaylist>>([]);
+
+  // Load playlists from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("lobbystream:playlists");
+      if (stored) {
+        setPlaylists(JSON.parse(stored) as ReadonlyArray<MinimalPlaylist>);
+      }
+    } catch (error) {
+      console.error("Failed to load playlists", error);
+    }
+  }, []);
+
+  // Sync playlists from custom event
+  useEffect(() => {
+    const handleRefresh = () => {
+      try {
+        const stored = localStorage.getItem("lobbystream:playlists");
+        if (stored) {
+          setPlaylists(JSON.parse(stored) as ReadonlyArray<MinimalPlaylist>);
+        }
+      } catch (error) {
+        console.error("Failed to reload playlists", error);
+      }
+    };
+    window.addEventListener("lobbystream:playlists-updated", handleRefresh);
+    return () => window.removeEventListener("lobbystream:playlists-updated", handleRefresh);
+  }, []);
+
+  const handleAddToPlaylist = (playlistId: string, videoId: string) => {
+    try {
+      const stored = localStorage.getItem("lobbystream:playlists");
+      const currentPlaylists = stored ? JSON.parse(stored) : [];
+      const updated = currentPlaylists.map((p: any) => {
+        if (p.id === playlistId) {
+          return { ...p, assetIds: [...p.assetIds, videoId] };
+        }
+        return p;
+      });
+      localStorage.setItem("lobbystream:playlists", JSON.stringify(updated));
+      window.dispatchEvent(new Event("lobbystream:playlists-updated"));
+      setActivePlaylistPicker(null);
+    } catch (e) {
+      console.error("Failed to add to playlist", e);
+    }
+  };
+
+  const handleCreateAndAddToPlaylist = (videoId: string) => {
+    const name = window.prompt("Enter new playlist name:");
+    if (!name || !name.trim()) return;
+
+    try {
+      const stored = localStorage.getItem("lobbystream:playlists");
+      const currentPlaylists = stored ? JSON.parse(stored) : [];
+      const newPlaylist = {
+        id: `playlist-${Date.now()}`,
+        name: name.trim(),
+        assetIds: [videoId],
+      };
+      const updated = [...currentPlaylists, newPlaylist];
+      localStorage.setItem("lobbystream:playlists", JSON.stringify(updated));
+      window.dispatchEvent(new Event("lobbystream:playlists-updated"));
+      setActivePlaylistPicker(null);
+    } catch (e) {
+      console.error("Failed to create and add to playlist", e);
+    }
+  };
 
   const { searchValue, onSearchChange } = useOutletContext<{
     searchValue?: string;
@@ -326,6 +401,45 @@ export function MediaLibraryView() {
                     <><ListPlus className="h-4 w-4" />Add to Queue</>
                   )}
                 </button>
+
+                {/* Add to Playlist button */}
+                <div className="relative w-full">
+                  <button
+                    type="button"
+                    onClick={() => setActivePlaylistPicker(activePlaylistPicker === video.id ? null : video.id)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm font-semibold text-text hover:border-accent/50 hover:text-accent-strong transition"
+                  >
+                    <FolderPlus className="h-4 w-4" />
+                    Add to Playlist
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+
+                  {activePlaylistPicker === video.id && (
+                    <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-xl border border-border bg-surface p-2 shadow-lg">
+                      <button
+                        type="button"
+                        onClick={() => handleCreateAndAddToPlaylist(video.id)}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-xs font-semibold text-accent hover:bg-surface-2"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Create New Playlist...
+                      </button>
+                      {playlists.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleAddToPlaylist(p.id, video.id)}
+                          className="block w-full truncate rounded-lg px-3 py-1.5 text-left text-xs text-text hover:bg-surface-2"
+                        >
+                          {p.name}
+                        </button>
+                      ))}
+                      {playlists.length === 0 && (
+                        <p className="px-3 py-1.5 text-[11px] italic text-text-muted">No existing playlists.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </article>
           );

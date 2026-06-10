@@ -355,7 +355,6 @@ export function TvDisplay() {
             <div className="relative">
               {videoSource ? (
                 <video
-                  key={videoSource}
                   ref={videoRef}
                   src={videoSource}
                   className="aspect-video w-full bg-black object-cover"

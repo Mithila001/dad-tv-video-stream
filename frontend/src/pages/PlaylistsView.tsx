@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { PlaySquare, Plus, Trash2, ArrowUp, ArrowDown, Search, CheckSquare, ListPlus } from "lucide-react";
+import { PlaySquare, Plus, Trash2, ArrowUp, ArrowDown, Search, ListPlus, PencilLine } from "lucide-react";
 import type { VideoAsset } from "../services/api";
 import { useSharedStreamSocket } from "../context/StreamSocketContext";
 
@@ -9,11 +9,17 @@ interface Playlist {
   readonly assetIds: ReadonlyArray<string>;
 }
 
+interface PlaylistItem {
+  readonly instanceId: string;
+  readonly assetId: string;
+}
+
 export function PlaylistsView() {
   const { assets: videos, playPlaylist, appendPlaylist } = useSharedStreamSocket();
   const [playlists, setPlaylists] = useState<ReadonlyArray<Playlist>>([]);
-  const [selectedIds, setSelectedIds] = useState<ReadonlyArray<string>>([]);
+  const [selectedItems, setSelectedItems] = useState<ReadonlyArray<PlaylistItem>>([]);
   const [playlistName, setPlaylistName] = useState("New Playlist");
+  const [editingPlaylistId, setEditingPlaylistId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   // Load playlists from localStorage on mount
@@ -28,11 +34,28 @@ export function PlaylistsView() {
     }
   }, []);
 
+  // Listen to external triggers to refresh playlists (e.g. from MediaLibrary direct add)
+  useEffect(() => {
+    const handleRefresh = () => {
+      try {
+        const stored = localStorage.getItem("lobbystream:playlists");
+        if (stored) {
+          setPlaylists(JSON.parse(stored) as ReadonlyArray<Playlist>);
+        }
+      } catch (error) {
+        console.error("Failed to reload playlists", error);
+      }
+    };
+    window.addEventListener("lobbystream:playlists-updated", handleRefresh);
+    return () => window.removeEventListener("lobbystream:playlists-updated", handleRefresh);
+  }, []);
+
   // Persist playlists to localStorage when changed
   const savePlaylistsToStorage = (nextPlaylists: ReadonlyArray<Playlist>) => {
     setPlaylists(nextPlaylists);
     try {
       localStorage.setItem("lobbystream:playlists", JSON.stringify(nextPlaylists));
+      window.dispatchEvent(new Event("lobbystream:playlists-updated"));
     } catch (error) {
       console.error("Failed to save playlists to localStorage", error);
     }
@@ -50,25 +73,29 @@ export function PlaylistsView() {
   }, [search, videos]);
 
   const selectedVideos = useMemo(() => {
-    // Return selected assets in the order they appear in selectedIds
-    return selectedIds
-      .map((id) => videos.find((v) => v.id === id))
-      .filter((v): v is VideoAsset => Boolean(v));
-  }, [selectedIds, videos]);
+    return selectedItems
+      .map((item) => {
+        const video = videos.find((v) => v.id === item.assetId);
+        return video ? { ...video, instanceId: item.instanceId } : null;
+      })
+      .filter((v): v is VideoAsset & { instanceId: string } => Boolean(v));
+  }, [selectedItems, videos]);
 
-  const toggleSelect = (videoId: string) => {
-    setSelectedIds((current) =>
-      current.includes(videoId)
-        ? current.filter((id) => id !== videoId)
-        : [...current, videoId]
-    );
+  const addVideoToBuilder = (videoId: string) => {
+    setSelectedItems((current) => [
+      ...current,
+      {
+        instanceId: `item-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`,
+        assetId: videoId,
+      },
+    ]);
   };
 
   const handleMoveUp = (index: number) => {
     if (index === 0) {
       return;
     }
-    setSelectedIds((current) => {
+    setSelectedItems((current) => {
       const next = [...current];
       const temp = next[index];
       next[index] = next[index - 1];
@@ -78,10 +105,10 @@ export function PlaylistsView() {
   };
 
   const handleMoveDown = (index: number) => {
-    if (index === selectedIds.length - 1) {
+    if (index === selectedItems.length - 1) {
       return;
     }
-    setSelectedIds((current) => {
+    setSelectedItems((current) => {
       const next = [...current];
       const temp = next[index];
       next[index] = next[index + 1];
@@ -90,32 +117,63 @@ export function PlaylistsView() {
     });
   };
 
-  const handleRemoveSelected = (videoId: string) => {
-    setSelectedIds((current) => current.filter((id) => id !== videoId));
+  const handleRemoveSelected = (instanceId: string) => {
+    setSelectedItems((current) => current.filter((item) => item.instanceId !== instanceId));
   };
 
   const handleSavePlaylist = () => {
-    if (selectedIds.length === 0) {
+    if (selectedItems.length === 0) {
       return;
     }
 
-    const newPlaylist: Playlist = {
-      id: `playlist-${Date.now()}`,
-      name: playlistName.trim() || `Playlist #${playlists.length + 1}`,
-      assetIds: [...selectedIds],
-    };
+    const assetIds = selectedItems.map((item) => item.assetId);
 
-    const nextPlaylists = [...playlists, newPlaylist];
-    savePlaylistsToStorage(nextPlaylists);
+    if (editingPlaylistId) {
+      const nextPlaylists = playlists.map((p) =>
+        p.id === editingPlaylistId
+          ? { ...p, name: playlistName.trim() || p.name, assetIds }
+          : p
+      );
+      savePlaylistsToStorage(nextPlaylists);
+      setEditingPlaylistId(null);
+    } else {
+      const newPlaylist: Playlist = {
+        id: `playlist-${Date.now()}`,
+        name: playlistName.trim() || `Playlist #${playlists.length + 1}`,
+        assetIds,
+      };
+      const nextPlaylists = [...playlists, newPlaylist];
+      savePlaylistsToStorage(nextPlaylists);
+    }
 
     // Reset builder form
-    setSelectedIds([]);
+    setSelectedItems([]);
     setPlaylistName("New Playlist");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlaylistId(null);
+    setSelectedItems([]);
+    setPlaylistName("New Playlist");
+  };
+
+  const handleEditPlaylist = (playlist: Playlist) => {
+    setEditingPlaylistId(playlist.id);
+    setPlaylistName(playlist.name);
+    setSelectedItems(
+      playlist.assetIds.map((assetId) => ({
+        instanceId: `item-${Math.random().toString(36).substr(2, 9)}-${Date.now()}`,
+        assetId,
+      }))
+    );
   };
 
   const handleDeletePlaylist = (playlistId: string) => {
     const nextPlaylists = playlists.filter((p) => p.id !== playlistId);
     savePlaylistsToStorage(nextPlaylists);
+    if (editingPlaylistId === playlistId) {
+      handleCancelEdit();
+    }
   };
 
   const handlePlayPlaylist = async (playlist: Playlist) => {
@@ -134,7 +192,6 @@ export function PlaylistsView() {
     }
   };
 
-  // Helper to map asset IDs to their VideoAsset models
   const getPlaylistVideos = (playlist: Playlist) => {
     return playlist.assetIds
       .map((id) => videos.find((v) => v.id === id))
@@ -164,10 +221,10 @@ export function PlaylistsView() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between border-b border-border/60 pb-5">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-text-muted">
-                  Playlist Builder
+                  Playlist Builder {editingPlaylistId && "(Editing Mode)"}
                 </p>
                 <h2 className="mt-2 text-xl font-semibold text-text">
-                  Arrange a new media sequence
+                  {editingPlaylistId ? "Modify existing sequence" : "Arrange a new media sequence"}
                 </h2>
               </div>
 
@@ -207,16 +264,16 @@ export function PlaylistsView() {
 
                 <div className="max-h-95 overflow-y-auto space-y-2 pr-1">
                   {filteredVideos.map((video) => {
-                    const isSelected = selectedIds.includes(video.id);
+                    const count = selectedItems.filter((item) => item.assetId === video.id).length;
 
                     return (
                       <button
                         key={video.id}
                         type="button"
-                        onClick={() => toggleSelect(video.id)}
+                        onClick={() => addVideoToBuilder(video.id)}
                         className={[
                           "w-full overflow-hidden rounded-xl border p-2 text-left transition",
-                          isSelected
+                          count > 0
                             ? "border-accent/40 bg-accent/10 ring-1 ring-accent/25"
                             : "border-border/70 bg-bg/70 hover:border-accent/35",
                         ].join(" ")}
@@ -235,12 +292,12 @@ export function PlaylistsView() {
                               {video.duration} • {video.format}
                             </p>
                           </div>
-                          <CheckSquare
-                            className={[
-                              "h-4 w-4 shrink-0 transition-colors",
-                              isSelected ? "text-accent" : "text-text-muted/60",
-                            ].join(" ")}
-                          />
+                          {count > 0 && (
+                            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-bold text-bg shrink-0">
+                              {count}x
+                            </span>
+                          )}
+                          <Plus className="h-4 w-4 shrink-0 text-text-muted/60" />
                         </div>
                       </button>
                     );
@@ -271,7 +328,7 @@ export function PlaylistsView() {
 
                     return (
                       <div
-                        key={`${video.id}-order-${index}`}
+                        key={`${video.instanceId}-order-${index}`}
                         className="flex items-center gap-3 rounded-xl border border-border/70 bg-bg/50 p-2 group"
                       >
                         <img
@@ -308,7 +365,7 @@ export function PlaylistsView() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleRemoveSelected(video.id)}
+                            onClick={() => handleRemoveSelected(video.instanceId)}
                             className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger"
                             title="Remove"
                           >
@@ -329,20 +386,29 @@ export function PlaylistsView() {
                   <button
                     type="button"
                     onClick={handleSavePlaylist}
-                    disabled={selectedIds.length === 0}
+                    disabled={selectedItems.length === 0}
                     className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-strong disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
-                    Save Playlist
+                    {editingPlaylistId ? "Update Playlist" : "Save Playlist"}
                   </button>
+                  {editingPlaylistId && (
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      className="inline-flex items-center justify-center rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text hover:bg-bg"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setSelectedIds([])}
-                    disabled={selectedIds.length === 0}
+                    onClick={() => setSelectedItems([])}
+                    disabled={selectedItems.length === 0}
                     className="inline-flex items-center justify-center rounded-xl border border-border bg-surface-2 px-3 py-2.5 text-sm font-semibold text-text hover:border-accent/40 disabled:opacity-50"
                     title="Clear list"
                   >
-                    Clear Selection
+                    Clear
                   </button>
                 </div>
               </div>
@@ -369,7 +435,10 @@ export function PlaylistsView() {
               return (
                 <article
                   key={playlist.id}
-                  className="rounded-2xl border border-border/80 bg-bg/40 p-4 space-y-3 hover:border-accent/35 transition-colors"
+                  className={[
+                    "rounded-2xl border bg-bg/40 p-4 space-y-3 hover:border-accent/35 transition-colors",
+                    editingPlaylistId === playlist.id ? "border-accent ring-1 ring-accent/35" : "border-border/80"
+                  ].join(" ")}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -380,14 +449,24 @@ export function PlaylistsView() {
                         {playlist.assetIds.length} assets queued
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePlaylist(playlist.id)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors"
-                      title="Delete playlist"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleEditPlaylist(playlist)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-accent/15 hover:text-accent transition-colors"
+                        title="Edit playlist"
+                      >
+                        <PencilLine className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePlaylist(playlist.id)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors"
+                        title="Delete playlist"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {playlistVids.length > 0 ? (
