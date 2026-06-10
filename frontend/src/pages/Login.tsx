@@ -33,37 +33,37 @@ export function Login() {
   };
 
   return (
-    <main className="min-h-screen bg-linear-to-b from-bg via-surface/40 to-bg px-4 py-8 text-text sm:px-6 lg:px-8">
-      <div className="mx-auto flex min-h-screen w-full max-w-4xl items-center justify-center">
-        <section className="grid w-full gap-0 overflow-hidden rounded-4xl border border-border bg-surface/90 shadow-panel lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="space-y-6 border-b border-border/70 p-8 lg:border-b-0 lg:border-r lg:p-10">
+    <main className="login-main">
+      <div className="login-container">
+        <section className="login-card">
+          <div className="login-info">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-text-muted">
+              <p className="login-subtitle-tag">
                 LobbyStream Secure Access
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-text md:text-5xl">
+              <h1 className="login-title">
                 Sign in to continue
               </h1>
-              <p className="mt-4 max-w-xl text-sm leading-6 text-text-muted md:text-base">
+              <p className="login-description">
                 Use the development credentials below to enter the operator
                 dashboard or the TV display.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border/70 bg-bg/70 p-5 text-sm text-text-muted">
-              <p className="font-semibold text-text">Test accounts</p>
-              <ul className="mt-3 space-y-2">
+            <div className="login-test-accounts-box">
+              <p className="login-test-accounts-title">Test accounts</p>
+              <ul className="login-test-accounts-list">
                 <li>Admin: admin / admin123</li>
                 <li>TV Viewer: tv-lobby / tv123</li>
               </ul>
             </div>
           </div>
 
-          <div className="p-8 lg:p-10">
-            <form className="space-y-5" onSubmit={handleSubmit}>
+          <div className="login-form-side">
+            <form className="login-form" onSubmit={handleSubmit}>
               <div>
                 <label
-                  className="text-sm font-semibold text-text"
+                  className="form-label"
                   htmlFor="username"
                 >
                   Username
@@ -73,7 +73,7 @@ export function Login() {
                   type="text"
                   value={username}
                   onChange={(event) => setUsername(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-border bg-bg/80 px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+                  className="form-input"
                   placeholder="Enter username"
                   autoComplete="username"
                 />
@@ -81,7 +81,7 @@ export function Login() {
 
               <div>
                 <label
-                  className="text-sm font-semibold text-text"
+                  className="form-label"
                   htmlFor="password"
                 >
                   Password
@@ -91,21 +91,21 @@ export function Login() {
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-border bg-bg/80 px-4 py-3 text-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+                  className="form-input"
                   placeholder="Enter password"
                   autoComplete="current-password"
                 />
               </div>
 
               {error ? (
-                <p className="rounded-xl border border-danger/35 bg-danger/10 px-4 py-3 text-sm text-danger">
+                <p className="form-error">
                   {error}
                 </p>
               ) : null}
 
               <button
                 type="submit"
-                className="inline-flex w-full items-center justify-center rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-bg transition hover:bg-accent-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                className="form-submit-btn"
               >
                 Sign in
               </button>

@@ -298,22 +298,22 @@ export function TvDisplay() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-black px-3 py-3 text-white sm:px-4 sm:py-4 lg:px-6 lg:py-6">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-4">
-        <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-sm">
+    <main className="tv-main">
+      <div className="tv-container">
+        <header className="tv-header">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-white/60">
+            <p className="tv-header-title-sub">
               TV Playback Receiver
             </p>
-            <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
+            <h1 className="tv-header-title">
               Live Stream Output
             </h1>
           </div>
-          <div className="flex items-center gap-3 text-sm text-white/80">
+          <div className="tv-header-controls">
             <button
               type="button"
               onClick={handleToggleMute}
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/20"
+              className="tv-btn"
             >
               {isMuted ? (
                 <VolumeX className="h-4 w-4" />
@@ -325,7 +325,7 @@ export function TvDisplay() {
             <button
               type="button"
               onClick={() => void handleToggleFullscreen()}
-              className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 font-semibold text-white ring-1 ring-white/20 transition hover:bg-white/20"
+              className="tv-btn"
             >
               {isFullscreen ? (
                 <Minimize className="h-4 w-4" />
@@ -335,29 +335,29 @@ export function TvDisplay() {
               {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             </button>
             {connectionState === "connected" ? (
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-300 ring-1 ring-emerald-400/25">
+              <span className="tv-status-badge tv-status-connected">
                 <RadioTower className="h-4 w-4" /> Connected
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full bg-amber-500/15 px-3 py-1 text-amber-300 ring-1 ring-amber-400/25">
+              <span className="tv-status-badge tv-status-disconnected">
                 <WifiOff className="h-4 w-4" /> {connectionState}
               </span>
             )}
-            <span className="rounded-full bg-white/10 px-3 py-1">Videos: {playlist.length}</span>
+            <span className="tv-badge-count">Videos: {playlist.length}</span>
           </div>
         </header>
 
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">
+        <section className="tv-grid">
           <div
             ref={playerShellRef}
-            className="overflow-hidden rounded-3xl border border-white/10 bg-neutral-950 shadow-2xl shadow-black/40"
+            className="tv-player-shell"
           >
-            <div className="relative">
+            <div className="tv-video-container">
               {videoSource ? (
                 <video
                   ref={videoRef}
                   src={videoSource}
-                  className="aspect-video w-full bg-black object-cover"
+                  className="tv-video"
                   autoPlay
                   muted={isMuted}
                   playsInline
@@ -365,17 +365,17 @@ export function TvDisplay() {
                   onVolumeChange={() => setIsMuted(Boolean(videoRef.current?.muted))}
                 />
               ) : (
-                <div className="flex aspect-video w-full items-center justify-center bg-neutral-900 text-sm text-white/60">
+                <div className="tv-no-video">
                   Waiting for a playable video
                 </div>
               )}
 
               {isMuted ? (
-                <div className="absolute inset-0 flex items-end justify-center p-4">
+                <div className="tv-unmute-overlay">
                   <button
                     type="button"
                     onClick={() => void handleEnableAudio()}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black shadow-lg transition hover:bg-white/90"
+                    className="tv-unmute-btn"
                   >
                     <Volume2 className="h-4 w-4" />
                     Click to Enable Audio
@@ -385,24 +385,24 @@ export function TvDisplay() {
             </div>
           </div>
 
-          <aside className="space-y-4 rounded-3xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+          <aside className="tv-aside">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">
+              <p className="tv-section-title">
                 Connection Status
               </p>
-              <p className="mt-2 text-lg font-semibold text-white">{connectionState}</p>
-              <p className="mt-1 text-sm text-white/70">{lastEvent}</p>
-              <div className="mt-3 space-y-2 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm text-white/80">
+              <p className="tv-status-title">{connectionState}</p>
+              <p className="tv-status-desc">{lastEvent}</p>
+              <div className="tv-info-panel">
                 <p>
-                  <span className="font-semibold text-white">Now showing:</span>{" "}
+                  <span className="tv-info-label">Now showing:</span>{" "}
                   {activeVideo?.title ?? "No active stream"}
                 </p>
                 <p>
-                  <span className="font-semibold text-white">Playback:</span>{" "}
+                  <span className="tv-info-label">Playback:</span>{" "}
                   {activeSync?.isPlaying ? "Playing" : "Paused"}
                 </p>
                 <p>
-                  <span className="font-semibold text-white">Timeline:</span>{" "}
+                  <span className="tv-info-label">Timeline:</span>{" "}
                   {activeSync
                     ? `${Math.floor(activeSync.currentTime / 60)}:${String(
                         Math.floor(activeSync.currentTime % 60),
@@ -415,7 +415,7 @@ export function TvDisplay() {
                     : "Waiting for sync"}
                 </p>
                 <p>
-                  <span className="font-semibold text-white">Broadcast health:</span>{" "}
+                  <span className="tv-info-label">Broadcast health:</span>{" "}
                   {connectionState === "connected"
                     ? "Live and stable"
                     : "Reconnecting"}
@@ -423,33 +423,33 @@ export function TvDisplay() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/60">
+            <div className="tv-playlist-container">
+              <p className="tv-section-title">
                 Available Video List
               </p>
-              <div className="mt-3 space-y-2">
+              <div className="tv-playlist-list">
                 {playlist.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-2"
+                    className="tv-playlist-item"
                   >
                     <img
                       src={item.thumbnailUrl}
                       alt={item.title}
-                      className="h-12 w-12 rounded-lg object-cover"
+                      className="tv-playlist-thumb"
                     />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-white">
+                    <div className="tv-playlist-info">
+                      <p className="tv-playlist-title">
                         {item.title}
                       </p>
-                      <p className="text-xs text-white/60">
+                      <p className="tv-playlist-meta">
                         {item.duration} • {item.format}
                       </p>
                     </div>
                   </div>
                 ))}
                 {playlist.length === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white/60">
+                  <div className="tv-playlist-empty">
                     Waiting for the first asset broadcast.
                   </div>
                 ) : null}
@@ -457,8 +457,8 @@ export function TvDisplay() {
             </div>
 
             {!activeVideo ? (
-              <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
-                <AlertCircle className="mb-2 h-4 w-4" /> No active asset yet.
+              <div className="tv-alert-box">
+                <AlertCircle className="h-4 w-4" /> No active asset yet.
               </div>
             ) : null}
           </aside>
