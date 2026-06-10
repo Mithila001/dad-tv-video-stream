@@ -106,7 +106,7 @@ const authUsers: ReadonlyArray<
 ];
 
 const app = express();
-const port = 5000;
+const port = parseInt(process.env.PORT ?? "5000", 10);
 const server = http.createServer(app);
 const wsServer = new WebSocketServer({ server, path: "/ws" });
 const serverBaseUrl = "";
